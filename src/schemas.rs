@@ -1,9 +1,9 @@
-use log::{info, error};
+use log::{error, info};
 use schema_registry_converter::blocking::schema_registry::{post_schema, SrSettings};
 use schema_registry_converter::schema_registry_common::{SchemaType, SuppliedSchema};
 use serde_derive::{Deserialize, Serialize};
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Deserialize)]
 pub enum MQAEventType {
     #[serde(rename = "PROPERTIES_CHECKED")]
     PropertiesChecked,
@@ -13,7 +13,7 @@ pub enum MQAEventType {
     DcatComplienceChecked,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Deserialize)]
 pub struct MQAEvent {
     #[serde(rename = "type")]
     pub event_type: MQAEventType,

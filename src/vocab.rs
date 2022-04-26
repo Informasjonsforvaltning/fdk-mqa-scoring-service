@@ -85,6 +85,22 @@ pub mod dqv {
 pub mod dcat_mqa {
     use oxigraph::model::NamedNodeRef;
 
+    // Dimensions
+    pub const ACCESSIBILITY: NamedNodeRef<'_> =
+        NamedNodeRef::new_unchecked("https://data.norge.no/vocabulary/dcatno-mqa#accessibility");
+
+    pub const CONTEXTUALITY: NamedNodeRef<'_> =
+        NamedNodeRef::new_unchecked("https://data.norge.no/vocabulary/dcatno-mqa#contextuality");
+
+    pub const FINDABILITY: NamedNodeRef<'_> =
+        NamedNodeRef::new_unchecked("https://data.norge.no/vocabulary/dcatno-mqa#findability");
+
+    pub const INTEROPERABILITY: NamedNodeRef<'_> =
+        NamedNodeRef::new_unchecked("https://data.norge.no/vocabulary/dcatno-mqa#interoperability");
+
+    pub const REUSABILITY: NamedNodeRef<'_> =
+        NamedNodeRef::new_unchecked("https://data.norge.no/vocabulary/dcatno-mqa#reusability");
+
     pub const ZERO_STARS: NamedNodeRef<'_> =
         NamedNodeRef::new_unchecked("https://data.norge.no/vocabulary/dcatno-mqa#zeroStars");
 
