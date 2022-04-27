@@ -1,7 +1,7 @@
 use crate::vocab::{dcat_mqa, dqv};
 use oxigraph::{
     io::GraphFormat,
-    model::{GraphNameRef, NamedNode, NamedNodeRef, Quad, Subject, Term},
+    model::{vocab::rdf, GraphNameRef, NamedNode, NamedNodeRef, Quad, Subject, Term},
     store::{LoaderError, StorageError},
 };
 use std::{collections::HashMap, fs, io};
@@ -22,12 +22,18 @@ impl Store {
 
     fn dimensions(&self) -> Result<Vec<NamedNode>, StorageError> {
         self.0
-            .quads_for_pattern(None, None, Some(dqv::DIMENSION.into()), None)
+            .quads_for_pattern(None, Some(rdf::TYPE), Some(dqv::DIMENSION.into()), None)
             .filter_map(named_quad_subject)
             .collect()
     }
 
     fn metrics(&self, dimension: NamedNodeRef) -> Result<Vec<NamedNode>, StorageError> {
+        let metrics = self
+            .0
+            .quads_for_pattern(None, None, Some(dqv::METRIC.into()), None)
+            .filter_map(named_quad_subject)
+            .collect::<Result<Vec<NamedNode>, StorageError>>()?;
+
         self.0
             .quads_for_pattern(
                 None,
@@ -36,6 +42,10 @@ impl Store {
                 None,
             )
             .filter_map(named_quad_subject)
+            .filter(|result| match result {
+                Ok(node) => metrics.contains(node),
+                _ => true,
+            })
             .collect()
     }
 
@@ -62,7 +72,9 @@ impl Store {
     }
 }
 
-fn named_quad_subject(result: Result<Quad, StorageError>) -> Option<Result<NamedNode, StorageError>> {
+fn named_quad_subject(
+    result: Result<Quad, StorageError>,
+) -> Option<Result<NamedNode, StorageError>> {
     match result {
         Ok(quad) => match quad.subject {
             Subject::NamedNode(node) => Some(Ok(node)),
@@ -112,6 +124,7 @@ mod tests {
     #[test]
     fn test_dimension_metrics() {
         let store = Store::load().unwrap();
+        let scores = store.metric_scores().unwrap();
 
         let dimensions = store.dimensions().unwrap();
         assert!(dimensions.len() > 0);
@@ -119,6 +132,16 @@ mod tests {
         for dim in dimensions {
             let metrics = store.metrics(dim.as_ref()).unwrap();
             assert!(metrics.len() > 0);
+
+            for metric in metrics {
+                let score = scores.get(&metric);
+                //assert!(score.is_some());
+
+                match score {
+                    Some(_) => (),
+                    None => println!("Missing score: {}", metric),
+                }
+            }
         }
     }
 }

@@ -86,6 +86,9 @@ pub mod dqv {
 
     pub const VALUE: NamedNodeRef<'_> =
         NamedNodeRef::new_unchecked("http://www.w3.org/ns/dqv#value");
+
+    pub const METRIC: NamedNodeRef<'_> =
+        NamedNodeRef::new_unchecked("http://www.w3.org/ns/dqv#Metric");
 }
 
 pub mod dcat_mqa {
