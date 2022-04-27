@@ -5,7 +5,7 @@ use oxigraph::model::vocab::{rdf, xsd};
 use oxigraph::model::*;
 use oxigraph::store::{QuadIter, StorageError, Store};
 
-use crate::vocab::{dcat, dcat_mqa, dqv};
+use vocab::{dcat, dcat_mqa, dqv};
 
 #[derive(Debug, PartialEq)]
 pub enum QualityMeasurementValue {

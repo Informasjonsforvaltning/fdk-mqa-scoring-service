@@ -63,6 +63,12 @@ pub mod dcat {
 pub mod dqv {
     use oxigraph::model::NamedNodeRef;
 
+    pub const DIMENSION: NamedNodeRef<'_> =
+        NamedNodeRef::new_unchecked("http://www.w3.org/ns/dqv#Dimension");
+
+    pub const IN_DIMENSION: NamedNodeRef<'_> =
+        NamedNodeRef::new_unchecked("http://www.w3.org/ns/dqv#inDimension");
+
     pub const QUALITY_MEASUREMENT_CLASS: NamedNodeRef<'_> =
         NamedNodeRef::new_unchecked("http://www.w3.org/ns/dqv#QualityMeasurement");
 
@@ -118,6 +124,9 @@ pub mod dcat_mqa {
 
     pub const FIVE_STARS: NamedNodeRef<'_> =
         NamedNodeRef::new_unchecked("https://data.norge.no/vocabulary/dcatno-mqa#fiveStars");
+
+    pub const TRUE_SCORE: NamedNodeRef<'_> =
+        NamedNodeRef::new_unchecked("https://data.norge.no/vocabulary/dcatno-mqa#trueScore");
 
     // Findability
     pub const KEYWORD_AVAILABILITY: NamedNodeRef<'_> = NamedNodeRef::new_unchecked(
