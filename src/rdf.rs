@@ -1,11 +1,15 @@
 use log::{error, info};
 
 use oxigraph::io::GraphFormat;
-use oxigraph::model::vocab::{rdf, xsd};
-use oxigraph::model::*;
+use oxigraph::model::vocab::xsd;
+use oxigraph::model::{
+    BlankNodeRef, GraphNameRef, Literal, NamedNode, NamedNodeRef, NamedOrBlankNodeRef, Term, LiteralRef, TermRef,
+};
+use oxigraph::sparql::{EvaluationError, QueryResults, QuerySolution};
 use oxigraph::store::{QuadIter, StorageError, Store};
+use rand::distributions;
 
-use vocab::{dcat, dcat_mqa, dqv};
+use crate::vocab::{dcat, dqv};
 
 #[derive(Debug, PartialEq)]
 pub enum QualityMeasurementValue {
@@ -33,90 +37,74 @@ pub fn parse_turtle(turtle: String) -> Result<Store, StorageError> {
 }
 
 // Retrieve distributions of a dataset
-pub fn list_distributions(dataset: NamedNodeRef, store: &Store) -> QuadIter {
-    store.quads_for_pattern(
-        Some(dataset.into()),
-        Some(dcat::DISTRIBUTION.into()),
-        None,
-        None,
-    )
+pub fn list_distributions(store: &Store) -> QuadIter {
+    store.quads_for_pattern(None, Some(dcat::DISTRIBUTION.into()), None, None)
 }
 
-// Retrieve datasets
-fn list_datasets(store: &Store) -> QuadIter {
-    store.quads_for_pattern(
-        None,
-        Some(rdf::TYPE),
-        Some(dcat::DATASET_CLASS.into()),
-        None,
-    )
+#[derive(Debug)]
+enum QueryError {
+    EvalError(EvaluationError),
+    Msg(String),
 }
 
-// Retrieve dataset namednode
-pub fn get_dataset_node(store: &Store) -> Option<NamedNode> {
-    list_datasets(&store).next().and_then(|d| match d {
-        Ok(Quad {
-            subject: Subject::NamedNode(n),
-            ..
-        }) => Some(n),
-        _ => None,
-    })
-}
-
-pub fn convert_term_to_named_or_blank_node_ref(term: TermRef) -> Option<NamedOrBlankNodeRef> {
-    match term {
-        TermRef::NamedNode(node) => Some(NamedOrBlankNodeRef::NamedNode(node)),
-        TermRef::BlankNode(node) => Some(NamedOrBlankNodeRef::BlankNode(node)),
-        _ => None,
-    }
-}
-
-pub fn get_quality_measurement_value(
-    distribution: NamedOrBlankNodeRef,
-    metric: NamedNodeRef,
+fn query(
+    q: &str,
     store: &Store,
-) -> Option<QualityMeasurementValue> {
-    let measurement = store
-        .quads_for_pattern(
-            Some(distribution.into()),
-            Some(dqv::HAS_QUALITY_MEASUREMENT),
-            None,
-            None,
-        )
-        .filter_map(|quad| match quad {
-            Ok(Quad {
-                object: Term::BlankNode(quality_measurement),
-                ..
-            }) => store
-                .quads_for_pattern(
-                    Some(quality_measurement.as_ref().into()),
-                    Some(dqv::IS_MEASUREMENT_OF),
-                    Some(metric.into()),
-                    None,
-                )
-                .next(),
-            _ => None,
-        })
-        .next();
-
-    match measurement {
-        Some(Ok(Quad {
-            object: Term::BlankNode(m),
-            ..
-        })) => {
-            return store
-                .quads_for_pattern(Some(m.as_ref().into()), Some(dqv::VALUE), None, None)
-                .next()
-                .map_or(None, |q| match q {
-                    Ok(Quad {
-                        object: Term::Literal(value),
-                        ..
-                    }) => convert_literal_to_quality_measurement_value(value),
-                    _ => None,
-                })
-        }
-        _ => None,
+) -> Result<Vec<QuerySolution>, QueryError> {
+    let result = store.query(q);
+    match result {
+        Ok(QueryResults::Solutions(solutions)) => match solutions.collect() {
+            Ok(vec) => Ok(vec),
+            Err(e) => Err(QueryError::EvalError(e)),
+        },
+        Err(e) => Err(QueryError::EvalError(e)),
+        _ => Err(QueryError::Msg("".to_string())),
     }
+}
+
+fn query_measurement_values(
+    distribution: NamedOrBlankNodeRef,
+    store: &Store,
+) -> Result<Vec<QuerySolution>, QueryError> {
+    let q = format!(
+        "
+            SELECT ?measurement ?value
+            WHERE {{
+                {distribution} {} ?m .
+                ?m {} ?measurement .
+                ?m {} ?value .
+            }}
+        ",
+        dqv::HAS_QUALITY_MEASUREMENT,
+        dqv::IS_MEASUREMENT_OF,
+        dqv::VALUE
+    );
+    query(&q, store)
+}
+
+fn get_quality_measurement(
+    measurement: NamedOrBlankNodeRef,
+    store: &Store,
+) -> Result<Vec<(NamedNode, Literal)>,QueryError>{
+    let measurements_query = query_measurement_values(measurement, store)?;
+    let measurements = measurements_query.into_iter().filter_map(|qs| {
+        let measurement = qs.get("measurement");
+        let value = qs.get("value");
+        match (measurement, value) {
+            (Some(Term::NamedNode(measurement)), Some(Term::Literal(value))) => {
+                Some((measurement.clone(), value.clone()))
+            }
+            _ => None,
+        }
+    }).collect::<Vec<(NamedNode, Literal)>>();
+
+    Ok(measurements)
+
+    /*match (measurement_quad, value_quad) {
+        (Some(Ok(Quad {object: Term::NamedNode(n), ..})),
+        Some(Ok(Quad {object: Term::Literal(v), ..}))) => (n, convert_literal_to_quality_measurement_value(v)),
+        _ => (),
+    }*/
 }
 
 fn convert_literal_to_quality_measurement_value(value: Literal) -> Option<QualityMeasurementValue> {
@@ -129,5 +117,36 @@ fn convert_literal_to_quality_measurement_value(value: Literal) -> Option<Qualit
             value.value().parse().unwrap_or(0),
         )),
         _ => None,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use oxigraph::model::NamedOrBlankNode;
+
+    use crate::store::{load_files, named_or_blank_quad_subject, parse_graphs};
+
+    use super::*;
+
+    fn measurement_graph() -> Store {
+        let fnames = vec!["test/measurement_graph.ttl"];
+        parse_graphs(load_files(fnames).unwrap()).unwrap()
+    }
+
+    #[test]
+    fn test_store() {
+        let graph = measurement_graph();
+        let distributions = list_distributions(&graph)
+            .filter_map(named_or_blank_quad_subject)
+            .collect::<Result<Vec<NamedOrBlankNode>, StorageError>>()
+            .unwrap();
+
+        for dist in distributions {
+            println!("{}", dist);
+            let measurements = get_quality_measurement(dist.as_ref(), &graph).unwrap();
+            for m in measurements {
+                println!("{}, {}", m.0, m.1);
+            }
+        }
     }
 }

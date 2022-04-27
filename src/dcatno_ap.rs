@@ -1,10 +1,12 @@
-use crate::vocab::{dcat_mqa, dqv};
+use crate::{
+    store::{load_files, named_quad_subject, parse_graphs},
+    vocab::{dcat_mqa, dqv},
+};
 use oxigraph::{
-    io::GraphFormat,
-    model::{vocab::rdf, GraphNameRef, NamedNode, NamedNodeRef, Quad, Subject, Term},
+    model::{vocab::rdf, NamedNode, NamedNodeRef, Quad, Subject, Term},
     store::{LoaderError, StorageError},
 };
-use std::{collections::HashMap, fs, io};
+use std::collections::HashMap;
 
 struct DcatapMqaStore(oxigraph::store::Store);
 
@@ -15,7 +17,10 @@ impl DcatapMqaStore {
             "dcatno-mqa-vocabulary-default-score-values.ttl",
         ];
         match load_files(fnames) {
-            Ok(graphs) => parse_graphs(graphs),
+            Ok(graphs) => match parse_graphs(graphs) {
+                Ok(store) => Ok(DcatapMqaStore(store)),
+                Err(e) => Err(e),
+            },
             Err(e) => Err(LoaderError::Storage(StorageError::Io(e))),
         }
     }
@@ -70,38 +75,6 @@ impl DcatapMqaStore {
             })
             .collect()
     }
-}
-
-fn named_quad_subject(
-    result: Result<Quad, StorageError>,
-) -> Option<Result<NamedNode, StorageError>> {
-    match result {
-        Ok(quad) => match quad.subject {
-            Subject::NamedNode(node) => Some(Ok(node)),
-            _ => None,
-        },
-        Err(e) => Some(Err(e)),
-    }
-}
-
-fn load_files(fnames: Vec<&str>) -> Result<Vec<String>, io::Error> {
-    fnames
-        .into_iter()
-        .map(|fname| fs::read_to_string(fname))
-        .collect()
-}
-
-fn parse_graphs(graphs: Vec<String>) -> Result<DcatapMqaStore, LoaderError> {
-    let store = oxigraph::store::Store::new()?;
-    for graph in graphs {
-        store.load_graph(
-            graph.as_ref(),
-            GraphFormat::Turtle,
-            GraphNameRef::DefaultGraph,
-            None,
-        )?;
-    }
-    Ok(DcatapMqaStore(store))
 }
 
 #[cfg(test)]
