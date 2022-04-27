@@ -1,21 +1,30 @@
 use log::{error, info};
-
-use oxigraph::io::GraphFormat;
-use oxigraph::model::vocab::xsd;
-use oxigraph::model::{
-    BlankNodeRef, GraphNameRef, Literal, NamedNode, NamedNodeRef, NamedOrBlankNodeRef, Term, LiteralRef, TermRef,
+use oxigraph::{
+    io::GraphFormat,
+    model::{vocab::xsd, GraphNameRef, Literal, NamedNode, NamedOrBlankNodeRef, Term},
+    sparql::{EvaluationError, QueryResults, QuerySolution},
+    store::{QuadIter, StorageError, Store},
 };
-use oxigraph::sparql::{EvaluationError, QueryResults, QuerySolution};
-use oxigraph::store::{QuadIter, StorageError, Store};
-use rand::distributions;
 
 use crate::vocab::{dcat, dqv};
 
 #[derive(Debug, PartialEq)]
 pub enum QualityMeasurementValue {
     Bool(bool),
-    Int(i32),
+    Int(i64),
     String(String),
+    Unknown(String),
+}
+
+impl From<Literal> for QualityMeasurementValue {
+    fn from(value: Literal) -> QualityMeasurementValue {
+        match value.datatype() {
+            xsd::STRING => QualityMeasurementValue::String(value.value().to_string()),
+            xsd::BOOLEAN => QualityMeasurementValue::Bool(value.value().to_string() == "true"),
+            xsd::INTEGER => QualityMeasurementValue::Int(value.value().parse().unwrap_or(0)),
+            _ => QualityMeasurementValue::Unknown(value.value().to_string()),
+        }
+    }
 }
 
 // Parse Turtle RDF and load into store
@@ -47,10 +56,7 @@ enum QueryError {
     Msg(String),
 }
 
-fn query(
-    q: &str,
-    store: &Store,
-) -> Result<Vec<QuerySolution>, QueryError> {
+fn query(q: &str, store: &Store) -> Result<Vec<QuerySolution>, QueryError> {
     let result = store.query(q);
     match result {
         Ok(QueryResults::Solutions(solutions)) => match solutions.collect() {
@@ -62,10 +68,10 @@ fn query(
     }
 }
 
-fn query_measurement_values(
+fn get_quality_measurement(
     distribution: NamedOrBlankNodeRef,
     store: &Store,
-) -> Result<Vec<QuerySolution>, QueryError> {
+) -> Result<Vec<(NamedNode, QualityMeasurementValue)>, QueryError> {
     let q = format!(
         "
             SELECT ?measurement ?value
@@ -79,45 +85,22 @@ fn query_measurement_values(
         dqv::IS_MEASUREMENT_OF,
         dqv::VALUE
     );
-    query(&q, store)
-}
-
-fn get_quality_measurement(
-    measurement: NamedOrBlankNodeRef,
-    store: &Store,
-) -> Result<Vec<(NamedNode, Literal)>,QueryError>{
-    let measurements_query = query_measurement_values(measurement, store)?;
-    let measurements = measurements_query.into_iter().filter_map(|qs| {
-        let measurement = qs.get("measurement");
-        let value = qs.get("value");
-        match (measurement, value) {
-            (Some(Term::NamedNode(measurement)), Some(Term::Literal(value))) => {
-                Some((measurement.clone(), value.clone()))
+    let measurements = query(&q, store)?
+        .into_iter()
+        .filter_map(|qs| {
+            let measurement = qs.get("measurement");
+            let value = qs.get("value");
+            match (measurement, value) {
+                (Some(Term::NamedNode(measurement)), Some(Term::Literal(value))) => Some((
+                    measurement.clone(),
+                    QualityMeasurementValue::from(value.clone()),
+                )),
+                _ => None,
             }
-            _ => None,
-        }
-    }).collect::<Vec<(NamedNode, Literal)>>();
+        })
+        .collect::<Vec<(NamedNode, QualityMeasurementValue)>>();
 
     Ok(measurements)
-
-    /*match (measurement_quad, value_quad) {
-        (Some(Ok(Quad {object: Term::NamedNode(n), ..})),
-        Some(Ok(Quad {object: Term::Literal(v), ..}))) => (n, convert_literal_to_quality_measurement_value(v)),
-        _ => (),
-    }*/
-}
-
-fn convert_literal_to_quality_measurement_value(value: Literal) -> Option<QualityMeasurementValue> {
-    match value.datatype() {
-        xsd::STRING => Some(QualityMeasurementValue::String(value.value().to_string())),
-        xsd::BOOLEAN => Some(QualityMeasurementValue::Bool(
-            value.value().to_string() == "true",
-        )),
-        xsd::INTEGER => Some(QualityMeasurementValue::Int(
-            value.value().parse().unwrap_or(0),
-        )),
-        _ => None,
-    }
 }
 
 #[cfg(test)]
@@ -142,11 +125,12 @@ mod tests {
             .unwrap();
 
         for dist in distributions {
-            println!("{}", dist);
+            //println!("{}", dist);
             let measurements = get_quality_measurement(dist.as_ref(), &graph).unwrap();
-            for m in measurements {
-                println!("{}, {}", m.0, m.1);
-            }
+            assert!(measurements.len() > 0);
+            /*for m in measurements {
+                println!("{}, {:?}", m.0, m.1);
+            }*/
         }
     }
 }
