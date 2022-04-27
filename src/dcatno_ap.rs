@@ -6,9 +6,9 @@ use oxigraph::{
 };
 use std::{collections::HashMap, fs, io};
 
-struct Store(oxigraph::store::Store);
+struct DcatapMqaStore(oxigraph::store::Store);
 
-impl Store {
+impl DcatapMqaStore {
     fn load() -> Result<Self, LoaderError> {
         let fnames = vec![
             "dcatno-mqa-vocabulary.ttl",
@@ -91,7 +91,7 @@ fn load_files(fnames: Vec<&str>) -> Result<Vec<String>, io::Error> {
         .collect()
 }
 
-fn parse_graphs(graphs: Vec<String>) -> Result<Store, LoaderError> {
+fn parse_graphs(graphs: Vec<String>) -> Result<DcatapMqaStore, LoaderError> {
     let store = oxigraph::store::Store::new()?;
     for graph in graphs {
         store.load_graph(
@@ -101,7 +101,7 @@ fn parse_graphs(graphs: Vec<String>) -> Result<Store, LoaderError> {
             None,
         )?;
     }
-    Ok(Store(store))
+    Ok(DcatapMqaStore(store))
 }
 
 #[cfg(test)]
@@ -110,20 +110,20 @@ mod tests {
 
     #[test]
     fn test_store() {
-        let store = Store::load();
+        let store = DcatapMqaStore::load();
         assert!(store.is_ok());
     }
 
     #[test]
     fn test_scores() {
-        let store = Store::load().unwrap();
+        let store = DcatapMqaStore::load().unwrap();
         let scores = store.metric_scores().unwrap();
         assert!(scores.len() > 0);
     }
 
     #[test]
     fn test_dimension_metrics() {
-        let store = Store::load().unwrap();
+        let store = DcatapMqaStore::load().unwrap();
         let scores = store.metric_scores().unwrap();
 
         let dimensions = store.dimensions().unwrap();
