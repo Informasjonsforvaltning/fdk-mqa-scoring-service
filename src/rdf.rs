@@ -1,12 +1,16 @@
 use log::{error, info};
 use oxigraph::{
     io::GraphFormat,
-    model::{vocab::xsd, GraphNameRef, Literal, NamedNode, NamedOrBlankNodeRef, Term},
-    sparql::{EvaluationError, QueryResults, QuerySolution},
-    store::{QuadIter, StorageError, Store},
+    model::{
+        vocab::xsd, GraphNameRef, Literal, NamedNode, NamedOrBlankNode, NamedOrBlankNodeRef, Term,
+    },
+    store::{StorageError, Store},
 };
 
-use crate::vocab::{dcat, dqv};
+use crate::{
+    helpers::{named_or_blank_quad_subject, query, QueryError},
+    vocab::{dcat, dqv},
+};
 
 #[derive(Debug, PartialEq)]
 pub enum QualityMeasurementValue {
@@ -27,7 +31,7 @@ impl From<Literal> for QualityMeasurementValue {
     }
 }
 
-// Parse Turtle RDF and load into store
+/// Parses Turtle RDF and load into store.
 pub fn parse_turtle(turtle: String) -> Result<Store, StorageError> {
     info!("Loading turtle graph");
 
@@ -45,27 +49,12 @@ pub fn parse_turtle(turtle: String) -> Result<Store, StorageError> {
     Ok(store)
 }
 
-// Retrieve distributions of a dataset
-pub fn list_distributions(store: &Store) -> QuadIter {
-    store.quads_for_pattern(None, Some(dcat::DISTRIBUTION.into()), None, None)
-}
-
-#[derive(Debug)]
-enum QueryError {
-    EvalError(EvaluationError),
-    Msg(String),
-}
-
-fn query(q: &str, store: &Store) -> Result<Vec<QuerySolution>, QueryError> {
-    let result = store.query(q);
-    match result {
-        Ok(QueryResults::Solutions(solutions)) => match solutions.collect() {
-            Ok(vec) => Ok(vec),
-            Err(e) => Err(QueryError::EvalError(e)),
-        },
-        Err(e) => Err(QueryError::EvalError(e)),
-        _ => Err(QueryError::Msg("".to_string())),
-    }
+/// Retrieves named or blank distributions.
+pub fn distributions(store: &Store) -> Result<Vec<NamedOrBlankNode>, StorageError> {
+    store
+        .quads_for_pattern(None, Some(dcat::DISTRIBUTION.into()), None, None)
+        .filter_map(named_or_blank_quad_subject)
+        .collect()
 }
 
 fn get_quality_measurement(
@@ -105,11 +94,8 @@ fn get_quality_measurement(
 
 #[cfg(test)]
 mod tests {
-    use oxigraph::model::NamedOrBlankNode;
-
-    use crate::store::{load_files, named_or_blank_quad_subject, parse_graphs};
-
     use super::*;
+    use crate::helpers::{load_files, parse_graphs};
 
     fn measurement_graph() -> Store {
         let fnames = vec!["test/measurement_graph.ttl"];
@@ -117,15 +103,11 @@ mod tests {
     }
 
     #[test]
-    fn test_store() {
+    fn test_get_measurements() {
         let graph = measurement_graph();
-        let distributions = list_distributions(&graph)
-            .filter_map(named_or_blank_quad_subject)
-            .collect::<Result<Vec<NamedOrBlankNode>, StorageError>>()
-            .unwrap();
+        let distributions = distributions(&graph).unwrap();
 
         for dist in distributions {
-            //println!("{}", dist);
             let measurements = get_quality_measurement(dist.as_ref(), &graph).unwrap();
             assert!(measurements.len() > 0);
             /*for m in measurements {

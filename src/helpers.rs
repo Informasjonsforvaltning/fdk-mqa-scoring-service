@@ -3,8 +3,27 @@ use std::{fs, io};
 use oxigraph::{
     io::GraphFormat,
     model::{GraphNameRef, NamedNode, NamedOrBlankNode, Quad, Subject, Term},
+    sparql::{EvaluationError, QueryResults, QuerySolution},
     store::{LoaderError, StorageError, Store},
 };
+
+#[derive(Debug)]
+pub enum QueryError {
+    EvalError(EvaluationError),
+    Msg(String),
+}
+
+pub fn query(q: &str, store: &Store) -> Result<Vec<QuerySolution>, QueryError> {
+    let result = store.query(q);
+    match result {
+        Ok(QueryResults::Solutions(solutions)) => match solutions.collect() {
+            Ok(vec) => Ok(vec),
+            Err(e) => Err(QueryError::EvalError(e)),
+        },
+        Err(e) => Err(QueryError::EvalError(e)),
+        _ => Err(QueryError::Msg("query errro".to_string())),
+    }
+}
 
 pub fn load_files(fnames: Vec<&str>) -> Result<Vec<String>, io::Error> {
     fnames
