@@ -1,7 +1,7 @@
 use crate::{
     dcatno_ap::DcatapMqaMetricScores,
     helpers::{parse_graphs, StoreError},
-    quality_measurements::{distributions, quality_measurements},
+    quality_measurements::{distributions, quality_measurements, QualityMeasurementValue},
 };
 use oxigraph::{
     model::{NamedNode, NamedOrBlankNode, NamedOrBlankNodeRef},
@@ -12,7 +12,7 @@ use oxigraph::{
 pub fn parse_graph_and_calculate_score(
     graph: String,
     scores: &DcatapMqaMetricScores,
-) -> Result<Vec<(NamedOrBlankNode, Vec<(NamedNode, Vec<(NamedNode, u64)>)>)>, StoreError> {
+) -> Result<Vec<(NamedOrBlankNode, Vec<(NamedNode, Vec<(NamedNode, Option<u64>)>)>)>, StoreError> {
     parse_graphs(vec![graph]).and_then(|store| calculate_score(&store, scores))
 }
 
@@ -20,7 +20,7 @@ pub fn parse_graph_and_calculate_score(
 fn calculate_score(
     store: &Store,
     scores: &DcatapMqaMetricScores,
-) -> Result<Vec<(NamedOrBlankNode, Vec<(NamedNode, Vec<(NamedNode, u64)>)>)>, StoreError> {
+) -> Result<Vec<(NamedOrBlankNode, Vec<(NamedNode, Vec<(NamedNode, Option<u64>)>)>)>, StoreError> {
     distributions(store)?
         .iter()
         .map(|dist| {
@@ -34,7 +34,7 @@ fn distribution_score(
     store: &Store,
     scores: &DcatapMqaMetricScores,
     distribution: NamedOrBlankNodeRef,
-) -> Result<Vec<(NamedNode, Vec<(NamedNode, u64)>)>, StoreError> {
+) -> Result<Vec<(NamedNode, Vec<(NamedNode, Option<u64>)>)>, StoreError> {
     quality_measurements(store, distribution.into()).map(|graph_dist_measurements| {
         scores
             .iter()
@@ -45,9 +45,11 @@ fn distribution_score(
                         .iter()
                         .map(|(measurement, score)| {
                             match graph_dist_measurements.get(measurement) {
-                                // TODO: Calculate score based on val
-                                Some(_val) => (measurement.clone(), score.clone()),
-                                None => (measurement.clone(), 0),
+                                Some(val) => (
+                                    measurement.clone(),
+                                    Some(if score_true(val) { score.clone() } else { 0 }),
+                                ),
+                                None => (measurement.clone(), None),
                             }
                         })
                         .collect(),
@@ -57,21 +59,25 @@ fn distribution_score(
     })
 }
 
-/*fn status_code_ok(value: QualityMeasurementValue) -> bool {
+fn score_true(value: &QualityMeasurementValue) -> bool {
     match value {
-        QualityMeasurementValue::Int(code) => 200 <= code && code < 300,
+        QualityMeasurementValue::Int(code) => 200 <= code.clone() && code.clone() < 300,
+        QualityMeasurementValue::Bool(bool) => bool.clone(),
         _ => false,
     }
-}*/
+}
 
 /// Prints score for all metrics in all dimensions, for all distributions.
-pub fn print_scores(scores: Vec<(NamedOrBlankNode, Vec<(NamedNode, Vec<(NamedNode, u64)>)>)>) {
+pub fn print_scores(scores: Vec<(NamedOrBlankNode, Vec<(NamedNode, Vec<(NamedNode, Option<u64>)>)>)>) {
     for (distribution, dimensions) in scores {
         println!("{}", distribution);
         for (dimension, measurements) in dimensions {
             println!("  {}", dimension);
             for (measurement, score) in measurements {
-                println!("    {}: {}", measurement, score);
+                println!("    {}: {}", measurement, match score {
+                    Some(val) => val.to_string(),
+                    None => "-".to_string(),
+                });
             }
         }
     }
