@@ -8,9 +8,7 @@ use oxigraph::{
     store::Store,
 };
 
-/// Calculates accessibility score
-///
-/// Returns the score of the highest scoring distribution
+/// Parses graph and calculates score for all metrics in all dimensions, for all distributions.
 pub fn parse_graph_and_calculate_score(
     graph: String,
     scores: &DcatapMqaMetricScores,
@@ -18,13 +16,7 @@ pub fn parse_graph_and_calculate_score(
     parse_graphs(vec![graph]).and_then(|store| calculate_score(&store, scores))
 }
 
-/*fn status_code_ok(value: QualityMeasurementValue) -> bool {
-    match value {
-        QualityMeasurementValue::Int(code) => 200 <= code && code < 300,
-        _ => false,
-    }
-}*/
-
+/// Calculates score for all metrics in all dimensions, for all distributions.
 fn calculate_score(
     store: &Store,
     scores: &DcatapMqaMetricScores,
@@ -37,6 +29,7 @@ fn calculate_score(
         .collect()
 }
 
+/// Calculates score for all metrics in all dimensions, for a distributions.
 fn distribution_score(
     store: &Store,
     scores: &DcatapMqaMetricScores,
@@ -64,6 +57,14 @@ fn distribution_score(
     })
 }
 
+/*fn status_code_ok(value: QualityMeasurementValue) -> bool {
+    match value {
+        QualityMeasurementValue::Int(code) => 200 <= code && code < 300,
+        _ => false,
+    }
+}*/
+
+/// Prints score for all metrics in all dimensions, for all distributions.
 pub fn print_scores(scores: Vec<(NamedOrBlankNode, Vec<(NamedNode, Vec<(NamedNode, u64)>)>)>) {
     for (distribution, dimensions) in scores {
         println!("{}", distribution);

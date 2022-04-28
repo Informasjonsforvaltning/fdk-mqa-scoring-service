@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use crate::{
     helpers::{named_or_blank_quad_subject, query, StoreError},
     vocab::{dcat, dqv},
@@ -8,6 +6,7 @@ use oxigraph::{
     model::{vocab::xsd, Literal, NamedNode, NamedOrBlankNode, NamedOrBlankNodeRef, Term},
     store::{StorageError, Store},
 };
+use std::collections::HashMap;
 
 #[derive(Debug, PartialEq)]
 pub enum QualityMeasurementValue {
@@ -28,7 +27,7 @@ impl From<Literal> for QualityMeasurementValue {
     }
 }
 
-/// Retrieves named or blank distributions.
+/// Retrieves all named or blank distributions.
 pub fn distributions(store: &Store) -> Result<Vec<NamedOrBlankNode>, StoreError> {
     store
         .quads_for_pattern(None, Some(dcat::DISTRIBUTION.into()), None, None)
@@ -37,7 +36,7 @@ pub fn distributions(store: &Store) -> Result<Vec<NamedOrBlankNode>, StoreError>
         .or_else(|e| Err(e.into()))
 }
 
-/// Retrieves pairs of quality measurements and their values.
+/// Retrieves all pairs of quality measurements and their values, within a distribution.
 pub fn quality_measurements(
     store: &Store,
     distribution: NamedOrBlankNodeRef,
@@ -55,7 +54,8 @@ pub fn quality_measurements(
         dqv::IS_MEASUREMENT_OF,
         dqv::VALUE
     );
-    let measurements = query(&q, &store)?
+    let query_result = query(&q, &store)?;
+    Ok(query_result
         .into_iter()
         .filter_map(|qs| {
             let measurement = qs.get("measurement");
@@ -68,9 +68,7 @@ pub fn quality_measurements(
                 _ => None,
             }
         })
-        .collect::<HashMap<NamedNode, QualityMeasurementValue>>();
-
-    Ok(measurements)
+        .collect::<HashMap<NamedNode, QualityMeasurementValue>>())
 }
 
 #[cfg(test)]
