@@ -1,18 +1,42 @@
 use crate::{
-    helpers::{load_files, named_quad_subject, parse_graphs},
-    helpers::{query, QueryError},
+    helpers::query,
+    helpers::{load_files, named_quad_subject, parse_graphs, StoreError},
     vocab::{dcat_mqa, dqv},
 };
 use oxigraph::{
-    model::{vocab::rdf, NamedNode, NamedNodeRef, Quad, Subject, Term},
-    store::{LoaderError, StorageError},
+    model::{vocab::rdf, NamedNode, Quad, Subject, Term},
+    store::StorageError,
 };
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
-struct DcatapMqaStore(oxigraph::store::Store);
+pub struct DcatapMqaStore(oxigraph::store::Store);
+pub type DcatapMqaMetricScores = Vec<(NamedNode, Vec<(NamedNode, u64)>)>;
 
 impl DcatapMqaStore {
-    fn load() -> Result<Self, LoaderError> {
+    pub fn dimension_metric_scores() -> Result<DcatapMqaMetricScores, StoreError> {
+        let store = DcatapMqaStore::load()?;
+        let scores = store.metric_scores()?;
+        let dimensions = store.dimensions()?;
+
+        dimensions
+            .into_iter()
+            .map(|dim| match store.metrics(dim.clone()) {
+                Ok(metrics) => Ok((
+                    dim.clone(),
+                    metrics
+                        .into_iter()
+                        .filter_map(|metric| match scores.get(&metric) {
+                            Some(score) => Some((metric, score.clone())),
+                            _ => None,
+                        })
+                        .collect(),
+                )),
+                Err(e) => Err(e),
+            })
+            .collect()
+    }
+
+    fn load() -> Result<Self, StoreError> {
         let fnames = vec![
             "graphs/dcatno-mqa-vocabulary.ttl",
             "graphs/dcatno-mqa-vocabulary-default-score-values.ttl",
@@ -20,18 +44,19 @@ impl DcatapMqaStore {
         match load_files(fnames) {
             Ok(graphs) => match parse_graphs(graphs) {
                 Ok(store) => Ok(DcatapMqaStore(store)),
-                Err(e) => Err(e),
+                Err(e) => Err(StoreError::from(e)),
             },
-            Err(e) => Err(LoaderError::Storage(StorageError::Io(e))),
+            Err(e) => Err(StoreError::StorageError(StorageError::Io(e))),
         }
     }
 
     /// Retrieves all named dimensions.
-    fn dimensions(&self) -> Result<Vec<NamedNode>, StorageError> {
+    fn dimensions(&self) -> Result<Vec<NamedNode>, StoreError> {
         self.0
             .quads_for_pattern(None, Some(rdf::TYPE), Some(dqv::DIMENSION.into()), None)
             .filter_map(named_quad_subject)
-            .collect()
+            .collect::<Result<Vec<NamedNode>, StorageError>>()
+            .or_else(|e| Err(e.into()))
     }
 
     /// Fetches all named metrics of a given dimension.
@@ -40,7 +65,7 @@ impl DcatapMqaStore {
     ///     a                   dqv:Metric ;
     ///     dqv:inDimension     <dimension> .
     /// ```
-    fn metrics(&self, dimension: NamedNodeRef) -> Result<Vec<NamedNode>, QueryError> {
+    fn metrics(&self, dimension: NamedNode) -> Result<Vec<NamedNode>, StoreError> {
         let q = format!(
             "
                 SELECT ?metric
@@ -53,7 +78,8 @@ impl DcatapMqaStore {
             dqv::IN_DIMENSION,
             dimension
         );
-        let metrics = query(&q, &self.0)?
+        let metrics = query(&q, &self.0)
+            .or_else(|e| Err(StoreError::from(e)))?
             .into_iter()
             .filter_map(|qs| match qs.get("metric") {
                 Some(Term::NamedNode(metric)) => Some(metric.clone()),
@@ -70,7 +96,7 @@ impl DcatapMqaStore {
     ///     a                   dqv:Metric ;
     ///     dqv:inDimension     <dimension> .
     /// ```
-    fn _metrics(&self, dimension: NamedNodeRef) -> Result<Vec<NamedNode>, StorageError> {
+    /* fn metrics(&self, dimension: NamedNodeRef) -> Result<Vec<NamedNode>, StorageError> {
         let metrics = self
             .0
             .quads_for_pattern(None, None, Some(dqv::METRIC.into()), None)
@@ -91,13 +117,14 @@ impl DcatapMqaStore {
             })
             .collect()
     }
+    */
 
     /// Fetches all true scores and returns a mapping from metric to true score.
     /// ```
     /// <metric>
     ///     dcatno-mqa:trueScore                "<score>"^^xsd:integer .
     /// ```
-    fn metric_scores(&self) -> Result<HashMap<NamedNode, u64>, StorageError> {
+    fn metric_scores(&self) -> Result<HashMap<NamedNode, u64>, StoreError> {
         self.0
             .quads_for_pattern(None, Some(dcat_mqa::TRUE_SCORE.into()), None, None)
             .filter_map(|result| match result {
@@ -113,7 +140,7 @@ impl DcatapMqaStore {
                         _ => None,
                     }
                 }
-                Err(e) => Some(Err(e)),
+                Err(e) => Some(Err(StoreError::StorageError(e))),
                 _ => None,
             })
             .collect()
@@ -146,7 +173,7 @@ mod tests {
         assert!(dimensions.len() > 0);
 
         for dim in dimensions {
-            let metrics = store.metrics(dim.as_ref()).unwrap();
+            let metrics = store.metrics(dim).unwrap();
             assert!(metrics.len() > 0);
 
             let exceptions = vec![

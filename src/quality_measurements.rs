@@ -1,15 +1,12 @@
-use log::{error, info};
-use oxigraph::{
-    io::GraphFormat,
-    model::{
-        vocab::xsd, GraphNameRef, Literal, NamedNode, NamedOrBlankNode, NamedOrBlankNodeRef, Term,
-    },
-    store::{StorageError, Store},
-};
+use std::collections::HashMap;
 
 use crate::{
-    helpers::{named_or_blank_quad_subject, query, QueryError},
+    helpers::{named_or_blank_quad_subject, query, StoreError},
     vocab::{dcat, dqv},
+};
+use oxigraph::{
+    model::{vocab::xsd, Literal, NamedNode, NamedOrBlankNode, NamedOrBlankNodeRef, Term},
+    store::{StorageError, Store},
 };
 
 #[derive(Debug, PartialEq)]
@@ -31,36 +28,20 @@ impl From<Literal> for QualityMeasurementValue {
     }
 }
 
-/// Parses Turtle RDF and load into store.
-pub fn parse_turtle(turtle: String) -> Result<Store, StorageError> {
-    info!("Loading turtle graph");
-
-    let store = Store::new()?;
-    match store.load_graph(
-        turtle.as_ref(),
-        GraphFormat::Turtle,
-        GraphNameRef::DefaultGraph,
-        None,
-    ) {
-        Ok(_) => info!("Graph loaded successfully"),
-        Err(e) => error!("Loading graph failed {}", e),
-    }
-
-    Ok(store)
-}
-
 /// Retrieves named or blank distributions.
-pub fn distributions(store: &Store) -> Result<Vec<NamedOrBlankNode>, StorageError> {
+pub fn distributions(store: &Store) -> Result<Vec<NamedOrBlankNode>, StoreError> {
     store
         .quads_for_pattern(None, Some(dcat::DISTRIBUTION.into()), None, None)
         .filter_map(named_or_blank_quad_subject)
-        .collect()
+        .collect::<Result<Vec<NamedOrBlankNode>, StorageError>>()
+        .or_else(|e| Err(e.into()))
 }
 
-fn get_quality_measurement(
-    distribution: NamedOrBlankNodeRef,
+/// Retrieves pairs of quality measurements and their values.
+pub fn quality_measurements(
     store: &Store,
-) -> Result<Vec<(NamedNode, QualityMeasurementValue)>, QueryError> {
+    distribution: NamedOrBlankNodeRef,
+) -> Result<HashMap<NamedNode, QualityMeasurementValue>, StoreError> {
     let q = format!(
         "
             SELECT ?measurement ?value
@@ -74,7 +55,7 @@ fn get_quality_measurement(
         dqv::IS_MEASUREMENT_OF,
         dqv::VALUE
     );
-    let measurements = query(&q, store)?
+    let measurements = query(&q, &store)?
         .into_iter()
         .filter_map(|qs| {
             let measurement = qs.get("measurement");
@@ -87,7 +68,7 @@ fn get_quality_measurement(
                 _ => None,
             }
         })
-        .collect::<Vec<(NamedNode, QualityMeasurementValue)>>();
+        .collect::<HashMap<NamedNode, QualityMeasurementValue>>();
 
     Ok(measurements)
 }
@@ -108,7 +89,7 @@ mod tests {
         let distributions = distributions(&graph).unwrap();
 
         for dist in distributions {
-            let measurements = get_quality_measurement(dist.as_ref(), &graph).unwrap();
+            let measurements = quality_measurements(&graph, dist.as_ref()).unwrap();
             assert!(measurements.len() > 0);
             /*for m in measurements {
                 println!("{}, {:?}", m.0, m.1);
