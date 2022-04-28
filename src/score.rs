@@ -52,7 +52,8 @@ fn distribution_score(
                         .iter()
                         .map(|(measurement, score)| {
                             match graph_dist_measurements.get(measurement) {
-                                Some(val) => (measurement.clone(), score.clone()),
+                                // TODO: Calculate score based on val
+                                Some(_val) => (measurement.clone(), score.clone()),
                                 None => (measurement.clone(), 0),
                             }
                         })
@@ -77,18 +78,18 @@ pub fn print_scores(scores: Vec<(NamedOrBlankNode, Vec<(NamedNode, Vec<(NamedNod
 
 #[cfg(test)]
 mod tests {
-    use std::fs;
-
     use super::*;
     use crate::dcatno_ap::DcatapMqaStore;
+    use std::fs;
 
     #[test]
     fn test_score_measurements() {
+        let metric_scores = DcatapMqaStore::dimension_metric_scores().unwrap();
+
         let graph_content = fs::read_to_string("test/measurement_graph.ttl")
             .unwrap()
             .to_string();
-        let metric_scores = DcatapMqaStore::dimension_metric_scores().unwrap();
-        let distribution_scores =
-            parse_graph_and_calculate_score(graph_content, &metric_scores).unwrap();
+        let distribution_scores = parse_graph_and_calculate_score(graph_content, &metric_scores);
+        assert!(distribution_scores.is_ok());
     }
 }

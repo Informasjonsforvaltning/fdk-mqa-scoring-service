@@ -98,28 +98,3 @@ pub fn named_quad_subject(
         Err(e) => Some(Err(e)),
     }
 }
-
-/*pub fn named_or_blank_quad_object(
-    result: Result<Quad, StorageError>,
-) -> Option<Result<NamedOrBlankNode, StorageError>> {
-    match result {
-        Ok(quad) => match quad.object {
-            Term::NamedNode(node) => Some(Ok(NamedOrBlankNode::NamedNode(node))),
-            Term::BlankNode(node) => Some(Ok(NamedOrBlankNode::BlankNode(node))),
-            _ => None,
-        },
-        Err(e) => Some(Err(e)),
-    }
-}
-
-pub fn named_quad_object(
-    result: Result<Quad, StorageError>,
-) -> Option<Result<NamedNode, StorageError>> {
-    match result {
-        Ok(quad) => match quad.object {
-            Term::NamedNode(node) => Some(Ok(node)),
-            _ => None,
-        },
-        Err(e) => Some(Err(e)),
-    }
-}*/

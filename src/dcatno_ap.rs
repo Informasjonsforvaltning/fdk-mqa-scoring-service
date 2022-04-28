@@ -90,35 +90,6 @@ impl DcatapMqaStore {
         Ok(metrics)
     }
 
-    /// Fetches all named metrics of a given dimension.
-    /// ```
-    /// <metric>
-    ///     a                   dqv:Metric ;
-    ///     dqv:inDimension     <dimension> .
-    /// ```
-    /* fn metrics(&self, dimension: NamedNodeRef) -> Result<Vec<NamedNode>, StorageError> {
-        let metrics = self
-            .0
-            .quads_for_pattern(None, None, Some(dqv::METRIC.into()), None)
-            .filter_map(named_quad_subject)
-            .collect::<Result<HashSet<NamedNode>, StorageError>>()?;
-
-        self.0
-            .quads_for_pattern(
-                None,
-                Some(dqv::IN_DIMENSION.into()),
-                Some(dimension.into()),
-                None,
-            )
-            .filter_map(named_quad_subject)
-            .filter(|result| match result {
-                Ok(node) => metrics.contains(node),
-                _ => true,
-            })
-            .collect()
-    }
-    */
-
     /// Fetches all true scores and returns a mapping from metric to true score.
     /// ```
     /// <metric>
