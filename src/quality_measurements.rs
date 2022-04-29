@@ -65,7 +65,7 @@ pub fn quality_measurements(
     Ok(query_result
         .into_iter()
         .filter_map(|qs| {
-            match (qs.get("measurement"), qs.get("value")) {
+            match (qs.get("metric"), qs.get("value")) {
                 (Some(Term::NamedNode(measurement)), Some(Term::Literal(value))) => Some((
                     measurement.clone(),
                     QualityMeasurementValue::from(value.clone()),
@@ -84,6 +84,13 @@ mod tests {
     fn measurement_graph() -> Store {
         let fnames = vec!["test/measurement_graph.ttl"];
         parse_graphs(load_files(fnames).unwrap()).unwrap()
+    }
+
+    #[test]
+    fn test_distributions() {
+        let graph = measurement_graph();
+        let distributions = distributions(&graph).unwrap();
+        assert!(distributions.len() == 1);
     }
 
     #[test]
