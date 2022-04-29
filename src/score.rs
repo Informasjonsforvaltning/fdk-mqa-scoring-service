@@ -38,18 +38,18 @@ fn distribution_score(
     quality_measurements(store, distribution.into()).map(|graph_dist_measurements| {
         scores
             .iter()
-            .map(|(diemsion, score_measurements)| {
+            .map(|(dimension, metrics_score)| {
                 (
-                    diemsion.clone(),
-                    score_measurements
+                    dimension.clone(),
+                    metrics_score
                         .iter()
-                        .map(|(measurement, score)| {
-                            match graph_dist_measurements.get(measurement) {
+                        .map(|(metric, score)| {
+                            match graph_dist_measurements.get(metric) {
                                 Some(val) => (
-                                    measurement.clone(),
+                                    metric.clone(),
                                     Some(if score_true(val) { score.clone() } else { 0 }),
                                 ),
-                                None => (measurement.clone(), None),
+                                None => (metric.clone(), None),
                             }
                         })
                         .collect(),

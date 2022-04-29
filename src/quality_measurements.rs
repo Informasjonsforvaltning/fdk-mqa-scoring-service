@@ -1,5 +1,5 @@
 use crate::{
-    helpers::{named_or_blank_quad_subject, query, StoreError},
+    helpers::{query, StoreError, named_or_blank_quad_object},
     vocab::{dcat, dqv},
 };
 use oxigraph::{
@@ -31,23 +31,30 @@ impl From<Literal> for QualityMeasurementValue {
 pub fn distributions(store: &Store) -> Result<Vec<NamedOrBlankNode>, StoreError> {
     store
         .quads_for_pattern(None, Some(dcat::DISTRIBUTION.into()), None, None)
-        .filter_map(named_or_blank_quad_subject)
+        .filter_map(named_or_blank_quad_object)
         .collect::<Result<Vec<NamedOrBlankNode>, StorageError>>()
         .or_else(|e| Err(e.into()))
 }
 
 /// Retrieves all pairs of quality measurements and their values, within a distribution.
+/// ```
+/// <https://registrering.fellesdatakatalog.digdir.no/catalogs/971277882/datasets/29a2bf37-5867-4c90-bc74-5a8c4e118572> <http://www.w3.org/ns/dqv#hasQualityMeasurement> _:c0cc2452ef89d2b1343d07254497828e .
+/// _:c0cc2452ef89d2b1343d07254497828e <http://www.w3.org/ns/dqv#value> "true"^^<http://www.w3.org/2001/XMLSchema#boolean> .
+/// _:c0cc2452ef89d2b1343d07254497828e <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/ns/dqv#QualityMeasurement> .
+/// _:c0cc2452ef89d2b1343d07254497828e <http://www.w3.org/ns/dqv#isMeasurementOf> <https://data.norge.no/vocabulary/dcatno-mqa#keywordAvailability> .
+/// _:c0cc2452ef89d2b1343d07254497828e <http://www.w3.org/ns/dqv#computedOn> <https://registrering.fellesdatakatalog.digdir.no/catalogs/971277882/datasets/29a2bf37-5867-4c90-bc74-5a8c4e118572> .
+/// ```
 pub fn quality_measurements(
     store: &Store,
-    distribution: NamedOrBlankNodeRef,
+    node: NamedOrBlankNodeRef,
 ) -> Result<HashMap<NamedNode, QualityMeasurementValue>, StoreError> {
     let q = format!(
         "
-            SELECT ?measurement ?value
+            SELECT ?metric ?value
             WHERE {{
-                {distribution} {} ?m .
-                ?m {} ?measurement .
-                ?m {} ?value .
+                {node} {} ?measurement .
+                ?measurement {} ?metric .
+                ?measurement {} ?value .
             }}
         ",
         dqv::HAS_QUALITY_MEASUREMENT,
@@ -58,9 +65,7 @@ pub fn quality_measurements(
     Ok(query_result
         .into_iter()
         .filter_map(|qs| {
-            let measurement = qs.get("measurement");
-            let value = qs.get("value");
-            match (measurement, value) {
+            match (qs.get("measurement"), qs.get("value")) {
                 (Some(Term::NamedNode(measurement)), Some(Term::Literal(value))) => Some((
                     measurement.clone(),
                     QualityMeasurementValue::from(value.clone()),

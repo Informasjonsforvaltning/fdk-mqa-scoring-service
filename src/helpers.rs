@@ -2,7 +2,7 @@ use std::{fs, io};
 
 use oxigraph::{
     io::GraphFormat,
-    model::{GraphNameRef, NamedNode, NamedOrBlankNode, Quad, Subject},
+    model::{GraphNameRef, NamedNode, NamedOrBlankNode, Quad, Subject, Term},
     sparql::{EvaluationError, QueryError, QueryResults, QuerySolution},
     store::{LoaderError, StorageError, Store},
 };
@@ -93,6 +93,19 @@ pub fn named_quad_subject(
     match result {
         Ok(quad) => match quad.subject {
             Subject::NamedNode(node) => Some(Ok(node)),
+            _ => None,
+        },
+        Err(e) => Some(Err(e)),
+    }
+}
+
+pub fn named_or_blank_quad_object(
+    result: Result<Quad, StorageError>,
+) -> Option<Result<NamedOrBlankNode, StorageError>> {
+    match result {
+        Ok(quad) => match quad.object {
+            Term::NamedNode(node) => Some(Ok(NamedOrBlankNode::NamedNode(node))),
+            Term::BlankNode(node) => Some(Ok(NamedOrBlankNode::BlankNode(node))),
             _ => None,
         },
         Err(e) => Some(Err(e)),
