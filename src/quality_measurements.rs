@@ -1,9 +1,9 @@
 use crate::{
-    helpers::{query, StoreError, named_or_blank_quad_object},
+    helpers::{named_or_blank_quad_object, query, StoreError},
     vocab::{dcat, dqv},
 };
 use oxigraph::{
-    model::{vocab::xsd, Literal, NamedNode, NamedOrBlankNode, NamedOrBlankNodeRef, Term},
+    model::{vocab::xsd, Literal, NamedNode, NamedOrBlankNode, Term},
     store::{StorageError, Store},
 };
 use std::collections::HashMap;
@@ -46,13 +46,12 @@ pub fn distributions(store: &Store) -> Result<Vec<NamedOrBlankNode>, StoreError>
 /// ```
 pub fn quality_measurements(
     store: &Store,
-    node: NamedOrBlankNodeRef,
-) -> Result<HashMap<NamedNode, QualityMeasurementValue>, StoreError> {
+) -> Result<HashMap<(NamedOrBlankNode, NamedNode), QualityMeasurementValue>, StoreError> {
     let q = format!(
         "
-            SELECT ?metric ?value
+            SELECT ?node ?metric ?value
             WHERE {{
-                {node} {} ?measurement .
+                ?node {} ?measurement .
                 ?measurement {} ?metric .
                 ?measurement {} ?value .
             }}
@@ -64,16 +63,34 @@ pub fn quality_measurements(
     let query_result = query(&q, &store)?;
     Ok(query_result
         .into_iter()
-        .filter_map(|qs| {
-            match (qs.get("metric"), qs.get("value")) {
-                (Some(Term::NamedNode(measurement)), Some(Term::Literal(value))) => Some((
-                    measurement.clone(),
+        .filter_map(
+            |qs| match (qs.get("node"), qs.get("metric"), qs.get("value")) {
+                (
+                    Some(Term::NamedNode(node)),
+                    Some(Term::NamedNode(measurement)),
+                    Some(Term::Literal(value)),
+                ) => Some((
+                    (
+                        NamedOrBlankNode::NamedNode(node.clone()),
+                        measurement.clone(),
+                    ),
+                    QualityMeasurementValue::from(value.clone()),
+                )),
+                (
+                    Some(Term::BlankNode(node)),
+                    Some(Term::NamedNode(measurement)),
+                    Some(Term::Literal(value)),
+                ) => Some((
+                    (
+                        NamedOrBlankNode::BlankNode(node.clone()),
+                        measurement.clone(),
+                    ),
                     QualityMeasurementValue::from(value.clone()),
                 )),
                 _ => None,
-            }
-        })
-        .collect::<HashMap<NamedNode, QualityMeasurementValue>>())
+            },
+        )
+        .collect::<HashMap<(NamedOrBlankNode, NamedNode), QualityMeasurementValue>>())
 }
 
 #[cfg(test)]
@@ -96,14 +113,7 @@ mod tests {
     #[test]
     fn test_get_measurements() {
         let graph = measurement_graph();
-        let distributions = distributions(&graph).unwrap();
-
-        for dist in distributions {
-            let measurements = quality_measurements(&graph, dist.as_ref()).unwrap();
-            assert!(measurements.len() > 0);
-            /*for m in measurements {
-                println!("{}, {:?}", m.0, m.1);
-            }*/
-        }
+        let measurements = quality_measurements(&graph).unwrap();
+        assert!(measurements.len() > 0);
     }
 }

@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use crate::{
     dcatno_ap::DcatapMqaMetricScores,
     helpers::{parse_graphs, StoreError},
@@ -12,7 +14,13 @@ use oxigraph::{
 pub fn parse_graph_and_calculate_score(
     graph: String,
     scores: &DcatapMqaMetricScores,
-) -> Result<Vec<(NamedOrBlankNode, Vec<(NamedNode, Vec<(NamedNode, Option<u64>)>)>)>, StoreError> {
+) -> Result<
+    Vec<(
+        NamedOrBlankNode,
+        Vec<(NamedNode, Vec<(NamedNode, Option<u64>)>)>,
+    )>,
+    StoreError,
+> {
     parse_graphs(vec![graph]).and_then(|store| calculate_score(&store, scores))
 }
 
@@ -20,43 +28,51 @@ pub fn parse_graph_and_calculate_score(
 fn calculate_score(
     store: &Store,
     scores: &DcatapMqaMetricScores,
-) -> Result<Vec<(NamedOrBlankNode, Vec<(NamedNode, Vec<(NamedNode, Option<u64>)>)>)>, StoreError> {
-    distributions(store)?
+) -> Result<
+    Vec<(
+        NamedOrBlankNode,
+        Vec<(NamedNode, Vec<(NamedNode, Option<u64>)>)>,
+    )>,
+    StoreError,
+> {
+    let graph_measurements = quality_measurements(store)?;
+    let dists = distributions(store)?;
+
+    Ok(dists
         .iter()
         .map(|dist| {
-            distribution_score(store, scores, dist.as_ref()).map(|scores| (dist.clone(), scores))
+            (dist.clone(),  distribution_score( scores, &graph_measurements, dist.as_ref()))
         })
         .collect()
+    )
 }
 
 /// Calculates score for all metrics in all dimensions, for a distributions.
 fn distribution_score(
-    store: &Store,
     scores: &DcatapMqaMetricScores,
+    graph_measurements: &HashMap<(NamedOrBlankNode, NamedNode), QualityMeasurementValue>,
     distribution: NamedOrBlankNodeRef,
-) -> Result<Vec<(NamedNode, Vec<(NamedNode, Option<u64>)>)>, StoreError> {
-    quality_measurements(store, distribution.into()).map(|graph_dist_measurements| {
-        scores
-            .iter()
-            .map(|(dimension, metrics_score)| {
-                (
-                    dimension.clone(),
-                    metrics_score
-                        .iter()
-                        .map(|(metric, score)| {
-                            match graph_dist_measurements.get(metric) {
-                                Some(val) => (
-                                    metric.clone(),
-                                    Some(if score_true(val) { score.clone() } else { 0 }),
-                                ),
-                                None => (metric.clone(), None),
-                            }
-                        })
-                        .collect(),
-                )
-            })
-            .collect()
-    })
+) -> Vec<(NamedNode, Vec<(NamedNode, Option<u64>)>)> {
+    scores
+        .iter()
+        .map(|(dimension, metrics_score)| {
+            (
+                dimension.clone(),
+                metrics_score
+                    .iter()
+                    .map(|(metric, score)| {
+                        match graph_measurements.get(&(distribution.into(), metric.clone())) {
+                            Some(val) => (
+                                metric.clone(),
+                                Some(if score_true(val) { score.clone() } else { 0 }),
+                            ),
+                            None => (metric.clone(), None),
+                        }
+                    })
+                    .collect(),
+            )
+        })
+        .collect()
 }
 
 fn score_true(value: &QualityMeasurementValue) -> bool {
@@ -68,16 +84,25 @@ fn score_true(value: &QualityMeasurementValue) -> bool {
 }
 
 /// Prints score for all metrics in all dimensions, for all distributions.
-pub fn print_scores(scores: Vec<(NamedOrBlankNode, Vec<(NamedNode, Vec<(NamedNode, Option<u64>)>)>)>) {
+pub fn print_scores(
+    scores: Vec<(
+        NamedOrBlankNode,
+        Vec<(NamedNode, Vec<(NamedNode, Option<u64>)>)>,
+    )>,
+) {
     for (distribution, dimensions) in scores {
         println!("{}", distribution);
         for (dimension, measurements) in dimensions {
             println!("  {}", dimension);
             for (measurement, score) in measurements {
-                println!("    {}: {}", measurement, match score {
-                    Some(val) => val.to_string(),
-                    None => "-".to_string(),
-                });
+                println!(
+                    "    {}: {}",
+                    measurement,
+                    match score {
+                        Some(val) => val.to_string(),
+                        None => "-".to_string(),
+                    }
+                );
             }
         }
     }
