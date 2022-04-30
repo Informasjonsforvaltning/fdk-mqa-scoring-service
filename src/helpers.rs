@@ -42,18 +42,19 @@ impl From<String> for StoreError {
     }
 }
 
-pub fn query(q: &str, store: &Store) -> Result<Vec<QuerySolution>, StoreError> {
-    let result = store.query(q);
-    match result {
+// Executes SPARQL query on store.
+pub fn execute_query(q: &str, store: &Store) -> Result<Vec<QuerySolution>, StoreError> {
+    match store.query(q) {
         Ok(QueryResults::Solutions(solutions)) => match solutions.collect() {
             Ok(vec) => Ok(vec),
             Err(e) => Err(e.into()),
         },
         Err(e) => Err(e.into()),
-        _ => Err("query errro".to_string().into()),
+        _ => Err("query error".to_string().into()),
     }
 }
 
+// Loads files from a list of filenames.
 pub fn load_files(fnames: Vec<&str>) -> Result<Vec<String>, io::Error> {
     fnames
         .into_iter()
@@ -61,6 +62,7 @@ pub fn load_files(fnames: Vec<&str>) -> Result<Vec<String>, io::Error> {
         .collect()
 }
 
+// Parses list of turtle graph strings into a single store.
 pub fn parse_graphs(graphs: Vec<String>) -> Result<Store, StoreError> {
     let store = oxigraph::store::Store::new()?;
     for graph in graphs {
@@ -74,40 +76,25 @@ pub fn parse_graphs(graphs: Vec<String>) -> Result<Store, StoreError> {
     Ok(store)
 }
 
-pub fn named_or_blank_quad_subject(
-    result: Result<Quad, StorageError>,
-) -> Option<Result<NamedOrBlankNode, StorageError>> {
-    match result {
-        Ok(quad) => match quad.subject {
-            Subject::NamedNode(node) => Some(Ok(NamedOrBlankNode::NamedNode(node))),
-            Subject::BlankNode(node) => Some(Ok(NamedOrBlankNode::BlankNode(node))),
-            _ => None,
-        },
-        Err(e) => Some(Err(e)),
+// Attemts to extract quad subject as named node.
+pub fn named_quad_subject(result: Result<Quad, StorageError>) -> Result<NamedNode, StoreError> {
+    match result?.subject {
+        Subject::NamedNode(node) => Ok(node),
+        _ => Err(StoreError::String(
+            "unable to get named quad object".to_string(),
+        )),
     }
 }
 
-pub fn named_quad_subject(
-    result: Result<Quad, StorageError>,
-) -> Option<Result<NamedNode, StorageError>> {
-    match result {
-        Ok(quad) => match quad.subject {
-            Subject::NamedNode(node) => Some(Ok(node)),
-            _ => None,
-        },
-        Err(e) => Some(Err(e)),
-    }
-}
-
+// Attemts to extract quad object as named or blank node.
 pub fn named_or_blank_quad_object(
     result: Result<Quad, StorageError>,
-) -> Option<Result<NamedOrBlankNode, StorageError>> {
-    match result {
-        Ok(quad) => match quad.object {
-            Term::NamedNode(node) => Some(Ok(NamedOrBlankNode::NamedNode(node))),
-            Term::BlankNode(node) => Some(Ok(NamedOrBlankNode::BlankNode(node))),
-            _ => None,
-        },
-        Err(e) => Some(Err(e)),
+) -> Result<NamedOrBlankNode, StoreError> {
+    match result?.object {
+        Term::NamedNode(node) => Ok(NamedOrBlankNode::NamedNode(node)),
+        Term::BlankNode(node) => Ok(NamedOrBlankNode::BlankNode(node)),
+        _ => Err(StoreError::String(
+            "unable to get named or blank quad object".to_string(),
+        )),
     }
 }

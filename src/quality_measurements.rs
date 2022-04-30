@@ -1,5 +1,5 @@
 use crate::{
-    helpers::{named_or_blank_quad_object, query, StoreError},
+    helpers::{execute_query, named_or_blank_quad_object, StoreError},
     vocab::{dcat, dqv},
 };
 use oxigraph::{
@@ -27,27 +27,19 @@ impl From<Literal> for QualityMeasurementValue {
     }
 }
 
-/// Retrieves all named or blank distributions.
+/// Retrieves all named or blank distribution nodes.
 pub fn distributions(store: &Store) -> Result<Vec<NamedOrBlankNode>, StoreError> {
     store
         .quads_for_pattern(None, Some(dcat::DISTRIBUTION.into()), None, None)
-        .filter_map(named_or_blank_quad_object)
-        .collect::<Result<Vec<NamedOrBlankNode>, StorageError>>()
-        .or_else(|e| Err(e.into()))
+        .map(named_or_blank_quad_object)
+        .collect()
 }
 
-/// Retrieves all pairs of quality measurements and their values, within a distribution.
-/// ```
-/// <https://registrering.fellesdatakatalog.digdir.no/catalogs/971277882/datasets/29a2bf37-5867-4c90-bc74-5a8c4e118572> <http://www.w3.org/ns/dqv#hasQualityMeasurement> _:c0cc2452ef89d2b1343d07254497828e .
-/// _:c0cc2452ef89d2b1343d07254497828e <http://www.w3.org/ns/dqv#value> "true"^^<http://www.w3.org/2001/XMLSchema#boolean> .
-/// _:c0cc2452ef89d2b1343d07254497828e <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/ns/dqv#QualityMeasurement> .
-/// _:c0cc2452ef89d2b1343d07254497828e <http://www.w3.org/ns/dqv#isMeasurementOf> <https://data.norge.no/vocabulary/dcatno-mqa#keywordAvailability> .
-/// _:c0cc2452ef89d2b1343d07254497828e <http://www.w3.org/ns/dqv#computedOn> <https://registrering.fellesdatakatalog.digdir.no/catalogs/971277882/datasets/29a2bf37-5867-4c90-bc74-5a8c4e118572> .
-/// ```
+/// Retrieves all quality measurements in a graph, as map: (node, metric) -> value.
 pub fn quality_measurements(
     store: &Store,
 ) -> Result<HashMap<(NamedOrBlankNode, NamedNode), QualityMeasurementValue>, StoreError> {
-    let q = format!(
+    let query = format!(
         "
             SELECT ?node ?metric ?value
             WHERE {{
@@ -60,60 +52,88 @@ pub fn quality_measurements(
         dqv::IS_MEASUREMENT_OF,
         dqv::VALUE
     );
-    let query_result = query(&q, &store)?;
-    Ok(query_result
+    execute_query(&query, &store)?
         .into_iter()
-        .filter_map(
-            |qs| match (qs.get("node"), qs.get("metric"), qs.get("value")) {
-                (
-                    Some(Term::NamedNode(node)),
-                    Some(Term::NamedNode(measurement)),
-                    Some(Term::Literal(value)),
-                ) => Some((
-                    (
-                        NamedOrBlankNode::NamedNode(node.clone()),
-                        measurement.clone(),
-                    ),
-                    QualityMeasurementValue::from(value.clone()),
+        .map(|qs| {
+            let node = match qs.get("node") {
+                Some(Term::NamedNode(node)) => Ok(NamedOrBlankNode::NamedNode(node.clone())),
+                Some(Term::BlankNode(node)) => Ok(NamedOrBlankNode::BlankNode(node.clone())),
+                _ => Err(StoreError::String(
+                    "unable to get quality measurement node".to_string(),
                 )),
-                (
-                    Some(Term::BlankNode(node)),
-                    Some(Term::NamedNode(measurement)),
-                    Some(Term::Literal(value)),
-                ) => Some((
-                    (
-                        NamedOrBlankNode::BlankNode(node.clone()),
-                        measurement.clone(),
-                    ),
-                    QualityMeasurementValue::from(value.clone()),
+            }?;
+            let metric = match qs.get("metric") {
+                Some(Term::NamedNode(node)) => Ok(node.clone()),
+                _ => Err(StoreError::String(
+                    "unable to get quality measurement metric".to_string(),
                 )),
-                _ => None,
-            },
-        )
-        .collect::<HashMap<(NamedOrBlankNode, NamedNode), QualityMeasurementValue>>())
+            }?;
+            let value = match qs.get("value") {
+                Some(Term::Literal(value)) => Ok(QualityMeasurementValue::from(value.clone())),
+                _ => Err(StoreError::String(
+                    "unable to get quality measurement value".to_string(),
+                )),
+            }?;
+            Ok(((node, metric), value))
+        })
+        .collect()
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::helpers::{load_files, parse_graphs};
+    use crate::helpers::parse_graphs;
 
     fn measurement_graph() -> Store {
-        let fnames = vec!["test/measurement_graph.ttl"];
-        parse_graphs(load_files(fnames).unwrap()).unwrap()
+        parse_graphs(vec![r#"
+            <http://dataset.a> <http://www.w3.org/ns/dcat#distribution> _:f9b4fdb9378aa7013a762790b069eb7e .
+            <http://dataset.a> <http://www.w3.org/ns/dqv#hasQualityMeasurement> _:2e0587e7a28b492755a38437372b2e05 .
+            _:f9b4fdb9378aa7013a762790b069eb7e <http://www.w3.org/ns/dqv#hasQualityMeasurement> _:38fc04f528a7eef5b4102f9fdd4b9ab6 .
+            _:f9b4fdb9378aa7013a762790b069eb7e <http://www.w3.org/ns/dqv#hasQualityMeasurement> _:972515fe91764948597fbb3beebedc5 .
+            _:2e0587e7a28b492755a38437372b2e05 <http://www.w3.org/ns/dqv#value> "true"^^<http://www.w3.org/2001/XMLSchema#boolean> .
+            _:2e0587e7a28b492755a38437372b2e05 <http://www.w3.org/ns/dqv#isMeasurementOf> <http://metric.a> .
+            _:38fc04f528a7eef5b4102f9fdd4b9ab6 <http://www.w3.org/ns/dqv#value> "false"^^<http://www.w3.org/2001/XMLSchema#boolean> .
+            _:38fc04f528a7eef5b4102f9fdd4b9ab6 <http://www.w3.org/ns/dqv#isMeasurementOf> <http://metric.b> .
+            _:972515fe91764948597fbb3beebedc5 <http://www.w3.org/ns/dqv#value> "true"^^<http://www.w3.org/2001/XMLSchema#boolean> .
+            _:972515fe91764948597fbb3beebedc5 <http://www.w3.org/ns/dqv#isMeasurementOf> <http://metric.c> .
+        "#.to_string()]).unwrap()
     }
 
     #[test]
     fn test_distributions() {
         let graph = measurement_graph();
         let distributions = distributions(&graph).unwrap();
-        assert!(distributions.len() == 1);
+        assert_eq!(distributions.len(), 1);
     }
 
     #[test]
     fn test_get_measurements() {
         let graph = measurement_graph();
+
         let measurements = quality_measurements(&graph).unwrap();
-        assert!(measurements.len() > 0);
+        let distribution = distributions(&graph).unwrap().into_iter().next().unwrap();
+
+        assert_eq!(measurements.len(), 3);
+        assert_eq!(
+            measurements.get(&(
+                NamedOrBlankNode::NamedNode(NamedNode::new_unchecked("http://dataset.a")),
+                NamedNode::new_unchecked("http://metric.a")
+            )),
+            Some(&QualityMeasurementValue::Bool(true))
+        );
+        assert_eq!(
+            measurements.get(&(
+                distribution.clone(),
+                NamedNode::new_unchecked("http://metric.b")
+            )),
+            Some(&QualityMeasurementValue::Bool(false))
+        );
+        assert_eq!(
+            measurements.get(&(
+                distribution.clone(),
+                NamedNode::new_unchecked("http://metric.c")
+            )),
+            Some(&QualityMeasurementValue::Bool(true))
+        );
     }
 }

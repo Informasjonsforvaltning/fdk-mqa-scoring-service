@@ -41,10 +41,12 @@ fn calculate_score(
     Ok(dists
         .iter()
         .map(|dist| {
-            (dist.clone(),  distribution_score( scores, &graph_measurements, dist.as_ref()))
+            (
+                dist.clone(),
+                distribution_score(scores, &graph_measurements, dist.as_ref()),
+            )
         })
-        .collect()
-    )
+        .collect())
 }
 
 /// Calculates score for all metrics in all dimensions, for a distributions.

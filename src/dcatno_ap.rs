@@ -1,5 +1,5 @@
 use crate::{
-    helpers::query,
+    helpers::execute_query,
     helpers::{load_files, named_quad_subject, parse_graphs, StoreError},
     vocab::{dcat_mqa, dqv},
 };
@@ -54,9 +54,8 @@ impl DcatapMqaStore {
     fn dimensions(&self) -> Result<Vec<NamedNode>, StoreError> {
         self.0
             .quads_for_pattern(None, Some(rdf::TYPE), Some(dqv::DIMENSION.into()), None)
-            .filter_map(named_quad_subject)
-            .collect::<Result<Vec<NamedNode>, StorageError>>()
-            .or_else(|e| Err(e.into()))
+            .map(named_quad_subject)
+            .collect()
     }
 
     /// Fetches all named metrics of a given dimension.
@@ -78,7 +77,7 @@ impl DcatapMqaStore {
             dqv::IN_DIMENSION,
             dimension
         );
-        let metrics = query(&q, &self.0)
+        let metrics = execute_query(&q, &self.0)
             .or_else(|e| Err(StoreError::from(e)))?
             .into_iter()
             .filter_map(|qs| match qs.get("metric") {
