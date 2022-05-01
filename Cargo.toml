@@ -22,5 +22,6 @@ rdkafka = { version = "0.28", features = ["cmake-build"] }
 schema_registry_converter = { version = "2.1.0", features = ["avro", "blocking"] }
 serde = "1.0.136"
 serde_derive = "1.0.136"
+thiserror = "1.0"
 tokio = { version = "1.17.0", features = ["full"] }
 url = "2.2.2" 

@@ -1,10 +1,11 @@
 use crate::{
-    helpers::{execute_query, named_or_blank_quad_object, StoreError},
+    error::MqaError,
+    helpers::{execute_query, named_or_blank_quad_object},
     vocab::{dcat, dqv},
 };
 use oxigraph::{
     model::{vocab::xsd, Literal, NamedNode, NamedOrBlankNode, Term},
-    store::{StorageError, Store},
+    store::Store,
 };
 use std::collections::HashMap;
 
@@ -28,7 +29,7 @@ impl From<Literal> for QualityMeasurementValue {
 }
 
 /// Retrieves all named or blank distribution nodes.
-pub fn distributions(store: &Store) -> Result<Vec<NamedOrBlankNode>, StoreError> {
+pub fn distributions(store: &Store) -> Result<Vec<NamedOrBlankNode>, MqaError> {
     store
         .quads_for_pattern(None, Some(dcat::DISTRIBUTION.into()), None, None)
         .map(named_or_blank_quad_object)
@@ -38,7 +39,7 @@ pub fn distributions(store: &Store) -> Result<Vec<NamedOrBlankNode>, StoreError>
 /// Retrieves all quality measurements in a graph, as map: (node, metric) -> value.
 pub fn quality_measurements(
     store: &Store,
-) -> Result<HashMap<(NamedOrBlankNode, NamedNode), QualityMeasurementValue>, StoreError> {
+) -> Result<HashMap<(NamedOrBlankNode, NamedNode), QualityMeasurementValue>, MqaError> {
     let query = format!(
         "
             SELECT ?node ?metric ?value
@@ -58,21 +59,15 @@ pub fn quality_measurements(
             let node = match qs.get("node") {
                 Some(Term::NamedNode(node)) => Ok(NamedOrBlankNode::NamedNode(node.clone())),
                 Some(Term::BlankNode(node)) => Ok(NamedOrBlankNode::BlankNode(node.clone())),
-                _ => Err(StoreError::String(
-                    "unable to get quality measurement node".to_string(),
-                )),
+                _ => Err("unable to get quality measurement node"),
             }?;
             let metric = match qs.get("metric") {
                 Some(Term::NamedNode(node)) => Ok(node.clone()),
-                _ => Err(StoreError::String(
-                    "unable to get quality measurement metric".to_string(),
-                )),
+                _ => Err("unable to get quality measurement metric"),
             }?;
             let value = match qs.get("value") {
                 Some(Term::Literal(value)) => Ok(QualityMeasurementValue::from(value.clone())),
-                _ => Err(StoreError::String(
-                    "unable to get quality measurement value".to_string(),
-                )),
+                _ => Err("unable to get quality measurement value"),
             }?;
             Ok(((node, metric), value))
         })

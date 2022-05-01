@@ -892,6 +892,7 @@ dependencies = [
  "schema_registry_converter",
  "serde",
  "serde_derive",
+ "thiserror",
  "tokio 1.17.0",
  "url",
 ]

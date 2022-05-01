@@ -1,9 +1,9 @@
-use std::fs;
-
 use dcatno_ap::DcatapMqaStore;
 use score::{parse_graph_and_calculate_score, print_scores};
+use std::fs;
 
 mod dcatno_ap;
+mod error;
 mod helpers;
 mod quality_measurements;
 mod score;

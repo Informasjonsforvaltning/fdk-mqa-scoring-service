@@ -1,14 +1,14 @@
-use std::collections::HashMap;
-
 use crate::{
     dcatno_ap::DcatapMqaMetricScores,
-    helpers::{parse_graphs, StoreError},
+    error::MqaError,
+    helpers::parse_graphs,
     quality_measurements::{distributions, quality_measurements, QualityMeasurementValue},
 };
 use oxigraph::{
     model::{NamedNode, NamedOrBlankNode, NamedOrBlankNodeRef},
     store::Store,
 };
+use std::collections::HashMap;
 
 /// Parses graph and calculates score for all metrics in all dimensions, for all distributions.
 pub fn parse_graph_and_calculate_score(
@@ -19,7 +19,7 @@ pub fn parse_graph_and_calculate_score(
         NamedOrBlankNode,
         Vec<(NamedNode, Vec<(NamedNode, Option<u64>)>)>,
     )>,
-    StoreError,
+    MqaError,
 > {
     parse_graphs(vec![graph]).and_then(|store| calculate_score(&store, scores))
 }
@@ -33,7 +33,7 @@ fn calculate_score(
         NamedOrBlankNode,
         Vec<(NamedNode, Vec<(NamedNode, Option<u64>)>)>,
     )>,
-    StoreError,
+    MqaError,
 > {
     let graph_measurements = quality_measurements(store)?;
     let dists = distributions(store)?;
