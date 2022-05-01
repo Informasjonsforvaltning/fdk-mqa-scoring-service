@@ -1,16 +1,16 @@
-use dcatno_ap::DcatapMqaStore;
 use score::{parse_graph_and_calculate_score, print_scores};
+use score_graph::ScoreGraph;
 use std::fs;
 
-mod dcatno_ap;
 mod error;
 mod helpers;
 mod quality_measurements;
 mod score;
+mod score_graph;
 mod vocab;
 
 fn main() {
-    let metric_scores = DcatapMqaStore::dimension_metric_scores().unwrap();
+    let metric_scores = ScoreGraph::scores().unwrap();
 
     let graph_content = fs::read_to_string("test/measurement_graph.ttl")
         .unwrap()

@@ -1,5 +1,4 @@
 use crate::{
-    dcatno_ap::DcatapMqaMetricScores,
     error::MqaError,
     helpers::parse_graphs,
     quality_measurements::{distributions, quality_measurements, QualityMeasurementValue},
@@ -10,36 +9,28 @@ use oxigraph::{
 };
 use std::collections::HashMap;
 
+pub type DistributionScores = Vec<(NamedOrBlankNode, DimensionScores)>;
+pub type DimensionScores = Vec<(NamedNode, MetricScores)>;
+pub type MetricScores = Vec<(NamedNode, Option<u64>)>;
+
 /// Parses graph and calculates score for all metrics in all dimensions, for all distributions.
 pub fn parse_graph_and_calculate_score(
     graph: String,
-    scores: &DcatapMqaMetricScores,
-) -> Result<
-    Vec<(
-        NamedOrBlankNode,
-        Vec<(NamedNode, Vec<(NamedNode, Option<u64>)>)>,
-    )>,
-    MqaError,
-> {
+    scores: &crate::score_graph::DimensionScores,
+) -> Result<DistributionScores, MqaError> {
     parse_graphs(vec![graph]).and_then(|store| calculate_score(&store, scores))
 }
 
 /// Calculates score for all metrics in all dimensions, for all distributions.
 fn calculate_score(
     store: &Store,
-    scores: &DcatapMqaMetricScores,
-) -> Result<
-    Vec<(
-        NamedOrBlankNode,
-        Vec<(NamedNode, Vec<(NamedNode, Option<u64>)>)>,
-    )>,
-    MqaError,
-> {
+    scores: &crate::score_graph::DimensionScores,
+) -> Result<DistributionScores, MqaError> {
     let graph_measurements = quality_measurements(store)?;
     let dists = distributions(store)?;
 
     Ok(dists
-        .iter()
+        .into_iter()
         .map(|dist| {
             (
                 dist.clone(),
@@ -51,16 +42,16 @@ fn calculate_score(
 
 /// Calculates score for all metrics in all dimensions, for a distributions.
 fn distribution_score(
-    scores: &DcatapMqaMetricScores,
+    dimesion_scores: &crate::score_graph::DimensionScores,
     graph_measurements: &HashMap<(NamedOrBlankNode, NamedNode), QualityMeasurementValue>,
     distribution: NamedOrBlankNodeRef,
-) -> Vec<(NamedNode, Vec<(NamedNode, Option<u64>)>)> {
-    scores
+) -> DimensionScores {
+    dimesion_scores
         .iter()
-        .map(|(dimension, metrics_score)| {
+        .map(|(dimension, metrics_scores)| {
             (
                 dimension.clone(),
-                metrics_score
+                metrics_scores
                     .iter()
                     .map(|(metric, score)| {
                         match graph_measurements.get(&(distribution.into(), metric.clone())) {
@@ -86,12 +77,7 @@ fn score_true(value: &QualityMeasurementValue) -> bool {
 }
 
 /// Prints score for all metrics in all dimensions, for all distributions.
-pub fn print_scores(
-    scores: Vec<(
-        NamedOrBlankNode,
-        Vec<(NamedNode, Vec<(NamedNode, Option<u64>)>)>,
-    )>,
-) {
+pub fn print_scores(scores: DistributionScores) {
     for (distribution, dimensions) in scores {
         println!("{}", distribution);
         for (dimension, measurements) in dimensions {
@@ -113,13 +99,12 @@ pub fn print_scores(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::dcatno_ap::DcatapMqaStore;
+    use crate::score_graph::ScoreGraph;
     use std::fs;
 
     #[test]
     fn test_score_measurements() {
-        let metric_scores = DcatapMqaStore::dimension_metric_scores().unwrap();
-
+        let metric_scores = ScoreGraph::scores().unwrap();
         let graph_content = fs::read_to_string("test/measurement_graph.ttl")
             .unwrap()
             .to_string();
