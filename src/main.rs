@@ -7,7 +7,7 @@ mod helpers;
 mod quality_measurements;
 mod score;
 mod score_graph;
-pub mod test;
+mod test;
 mod vocab;
 
 fn main() {
