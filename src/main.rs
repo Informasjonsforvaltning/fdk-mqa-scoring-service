@@ -7,14 +7,14 @@ mod helpers;
 mod quality_measurements;
 mod score;
 mod score_graph;
-mod vocab;
 pub mod test;
+mod vocab;
 
 fn main() {
     let score_graph = ScoreGraph::load().unwrap();
     let metric_scores = score_graph.scores().unwrap();
 
-    let graph_content = fs::read_to_string("test/measurement_graph.ttl")
+    let graph_content = fs::read_to_string("measurement_graph.ttl")
         .unwrap()
         .to_string();
     let distribution_scores =
