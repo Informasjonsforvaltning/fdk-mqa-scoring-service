@@ -51,6 +51,19 @@ pub fn named_quad_subject(result: Result<Quad, StorageError>) -> Result<NamedNod
     }
 }
 
+// Attemts to extract quad subject as named or blank node.
+pub fn named_or_blank_quad_subject(
+    result: Result<Quad, StorageError>,
+) -> Result<NamedOrBlankNode, MqaError> {
+    match result?.subject {
+        Subject::NamedNode(node) => Ok(NamedOrBlankNode::NamedNode(node)),
+        Subject::BlankNode(node) => Ok(NamedOrBlankNode::BlankNode(node)),
+        _ => Err(MqaError::String(
+            "unable to get named or blank quad subject".to_string(),
+        )),
+    }
+}
+
 // Attemts to extract quad object as named or blank node.
 pub fn named_or_blank_quad_object(
     result: Result<Quad, StorageError>,

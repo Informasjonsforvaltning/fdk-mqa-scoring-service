@@ -1,6 +1,6 @@
 use crate::{
     error::MqaError,
-    helpers::{execute_query, named_or_blank_quad_object},
+    helpers::{execute_query, named_or_blank_quad_object, named_or_blank_quad_subject},
     vocab::{dcat, dqv},
 };
 use oxigraph::{
@@ -26,6 +26,14 @@ impl From<Literal> for QualityMeasurementValue {
             _ => QualityMeasurementValue::Unknown(value.value().to_string()),
         }
     }
+}
+
+/// Retrieves all named or blank dataset nodes.
+pub fn datasets(store: &Store) -> Result<Vec<NamedOrBlankNode>, MqaError> {
+    store
+        .quads_for_pattern(None, Some(dcat::DISTRIBUTION.into()), None, None)
+        .map(named_or_blank_quad_subject)
+        .collect()
 }
 
 /// Retrieves all named or blank distribution nodes.

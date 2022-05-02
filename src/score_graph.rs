@@ -85,10 +85,10 @@ impl ScoreGraph {
 }
 
 #[cfg(test)]
-mod tests {
+pub mod tests {
     use super::*;
 
-    fn score_graph() -> ScoreGraph {
+    pub fn score_graph() -> ScoreGraph {
         ScoreGraph(
             parse_graphs(vec![
                 r#"

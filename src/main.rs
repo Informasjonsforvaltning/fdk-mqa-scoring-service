@@ -1,4 +1,4 @@
-use score::{parse_graph_and_calculate_score, print_scores};
+use score::{best_distribution, parse_graph_and_calculate_score, print_scores};
 use score_graph::ScoreGraph;
 use std::fs;
 
@@ -19,5 +19,8 @@ fn main() {
     let distribution_scores =
         parse_graph_and_calculate_score(graph_content, &metric_scores).unwrap();
 
-    print_scores(distribution_scores);
+    match best_distribution(distribution_scores) {
+        Some(scores) => print_scores(&vec![scores]),
+        None => (),
+    }
 }
