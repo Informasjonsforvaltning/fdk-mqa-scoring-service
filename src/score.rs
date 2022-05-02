@@ -104,7 +104,7 @@ mod tests {
 
     #[test]
     fn test_score_measurements() {
-        let metric_scores = ScoreGraph::scores().unwrap();
+        let metric_scores = ScoreGraph::load().unwrap().scores().unwrap();
         let graph_content = fs::read_to_string("test/measurement_graph.ttl")
             .unwrap()
             .to_string();

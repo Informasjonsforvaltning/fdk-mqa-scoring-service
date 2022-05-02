@@ -14,20 +14,19 @@ pub type DimensionScores = Vec<(NamedNode, MetricScores)>;
 pub type MetricScores = Vec<(NamedNode, u64)>;
 
 impl ScoreGraph {
-    pub fn scores() -> Result<DimensionScores, MqaError> {
-        let store = ScoreGraph::load()?;
-
-        store
-            .dimensions()?
+    // Returns metrics and values of each score dimension.
+    pub fn scores(&self) -> Result<DimensionScores, MqaError> {
+        self.dimensions()?
             .into_iter()
             .map(|dimension| {
-                let metrics = store.metrics(dimension.as_ref())?;
+                let metrics = self.metrics(dimension.as_ref())?;
                 Ok((dimension, metrics))
             })
             .collect()
     }
 
-    fn load() -> Result<Self, MqaError> {
+    // Loads score graph from files.
+    pub fn load() -> Result<Self, MqaError> {
         let fnames = vec![
             "graphs/dcatno-mqa-vocabulary.ttl",
             "graphs/dcatno-mqa-vocabulary-default-score-values.ttl",
@@ -89,22 +88,80 @@ impl ScoreGraph {
 mod tests {
     use super::*;
 
+    fn score_graph() -> ScoreGraph {
+        ScoreGraph(
+            parse_graphs(vec![
+                r#"
+                @prefix dcatno-mqa: <https://data.norge.no/vocabulary/dcatno-mqa#> .
+                @prefix dqv:        <http://www.w3.org/ns/dqv#> .
+                dcatno-mqa:accessibility
+                    a                       dqv:Dimension .
+                dcatno-mqa:interoperability
+                    a                       dqv:Dimension .
+                dcatno-mqa:accessUrlStatusCode
+                    a                       dqv:Metric ;
+                    dqv:inDimension         dcatno-mqa:accessibility .
+                dcatno-mqa:downloadUrlAvailability
+                    a                       dqv:Metric ;
+                    dqv:inDimension         dcatno-mqa:accessibility .
+                dcatno-mqa:formatAvailability
+                    a                       dqv:Metric ;
+                    dqv:inDimension         dcatno-mqa:interoperability .
+                "#
+                .to_string(),
+                r#"
+                @prefix dcatno-mqa: <https://data.norge.no/vocabulary/dcatno-mqa#> .
+                @prefix xsd:        <http://www.w3.org/2001/XMLSchema#> .
+                dcatno-mqa:accessUrlStatusCode
+                    dcatno-mqa:trueScore            "50"^^xsd:integer .
+                dcatno-mqa:downloadUrlAvailability
+                    dcatno-mqa:trueScore            "20"^^xsd:integer .
+                dcatno-mqa:formatAvailability
+                    dcatno-mqa:trueScore            "20"^^xsd:integer .
+                "#
+                .to_string(),
+            ])
+            .unwrap(),
+        )
+    }
+
+    fn node(name: &str) -> NamedNode {
+        NamedNode::new_unchecked("https://data.norge.no/vocabulary/dcatno-mqa#".to_string() + name)
+    }
+
     #[test]
     fn store() {
-        let store = ScoreGraph::load();
-        assert!(store.is_ok());
+        let _ = ScoreGraph::load().unwrap();
     }
 
     #[test]
     fn dimensions() {
-        let store = ScoreGraph::load().unwrap();
-        let dimension = store.dimensions().unwrap();
-        assert_eq!(dimension.len(), 5);
+        let score_graph = score_graph();
+        let dimension = score_graph.dimensions().unwrap();
+        assert_eq!(
+            dimension,
+            vec![node("interoperability"), node("accessibility"),]
+        )
     }
 
     #[test]
     fn score() {
-        let scores = ScoreGraph::scores().unwrap();
-        assert_eq!(scores.len(), 5);
+        let score_graph = score_graph();
+        assert_eq!(
+            score_graph.scores().unwrap(),
+            vec![
+                (
+                    node("interoperability"),
+                    vec![(node("formatAvailability"), 20)]
+                ),
+                (
+                    node("accessibility"),
+                    vec![
+                        (node("downloadUrlAvailability"), 20),
+                        (node("accessUrlStatusCode"), 50),
+                    ]
+                )
+            ]
+        );
     }
 }
