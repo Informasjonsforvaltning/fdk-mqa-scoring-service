@@ -85,7 +85,10 @@ pub fn quality_measurements(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::helpers::parse_graphs;
+    use crate::helpers::{
+        parse_graphs,
+        tests::{nnode, node},
+    };
 
     fn measurement_graph() -> Store {
         parse_graphs(vec![r#"
@@ -118,24 +121,15 @@ mod tests {
 
         assert_eq!(measurements.len(), 3);
         assert_eq!(
-            measurements.get(&(
-                NamedOrBlankNode::NamedNode(NamedNode::new_unchecked("http://dataset.a")),
-                NamedNode::new_unchecked("http://metric.a")
-            )),
+            measurements.get(&(node("http://dataset.a"), nnode("http://metric.a"))),
             Some(&QualityMeasurementValue::Bool(true))
         );
         assert_eq!(
-            measurements.get(&(
-                distribution.clone(),
-                NamedNode::new_unchecked("http://metric.b")
-            )),
+            measurements.get(&(distribution.clone(), nnode("http://metric.b"))),
             Some(&QualityMeasurementValue::Bool(false))
         );
         assert_eq!(
-            measurements.get(&(
-                distribution.clone(),
-                NamedNode::new_unchecked("http://metric.c")
-            )),
+            measurements.get(&(distribution.clone(), nnode("http://metric.c"))),
             Some(&QualityMeasurementValue::Bool(true))
         );
     }

@@ -86,6 +86,8 @@ impl ScoreGraph {
 
 #[cfg(test)]
 pub mod tests {
+    use crate::helpers::tests::mqa_node;
+
     use super::*;
 
     pub fn score_graph() -> ScoreGraph {
@@ -125,10 +127,6 @@ pub mod tests {
         )
     }
 
-    fn node(name: &str) -> NamedNode {
-        NamedNode::new_unchecked("https://data.norge.no/vocabulary/dcatno-mqa#".to_string() + name)
-    }
-
     #[test]
     fn store() {
         let _ = ScoreGraph::load().unwrap();
@@ -140,7 +138,7 @@ pub mod tests {
         let dimension = score_graph.dimensions().unwrap();
         assert_eq!(
             dimension,
-            vec![node("interoperability"), node("accessibility"),]
+            vec![mqa_node("interoperability"), mqa_node("accessibility"),]
         )
     }
 
@@ -151,14 +149,14 @@ pub mod tests {
             score_graph.scores().unwrap(),
             vec![
                 (
-                    node("interoperability"),
-                    vec![(node("formatAvailability"), 20)]
+                    mqa_node("interoperability"),
+                    vec![(mqa_node("formatAvailability"), 20)]
                 ),
                 (
-                    node("accessibility"),
+                    mqa_node("accessibility"),
                     vec![
-                        (node("downloadUrlAvailability"), 20),
-                        (node("accessUrlStatusCode"), 50),
+                        (mqa_node("downloadUrlAvailability"), 20),
+                        (mqa_node("accessUrlStatusCode"), 50),
                     ]
                 )
             ]

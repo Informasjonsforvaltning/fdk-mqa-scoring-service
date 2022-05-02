@@ -148,6 +148,7 @@ pub fn print_scores(scores: &DistributionScores) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::helpers::tests::{mqa_node, node};
 
     fn graph() -> String {
         r#"
@@ -170,14 +171,6 @@ mod tests {
         _:d <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/ns/dqv#QualityMeasurement> .
         _:d <http://www.w3.org/ns/dqv#isMeasurementOf> <https://data.norge.no/vocabulary/dcatno-mqa#formatAvailability> .
         "#.to_string()
-    }
-
-    fn node(name: &str) -> NamedOrBlankNode {
-        NamedOrBlankNode::NamedNode(NamedNode::new_unchecked(name))
-    }
-
-    fn mqa_node(name: &str) -> NamedNode {
-        NamedNode::new_unchecked("https://data.norge.no/vocabulary/dcatno-mqa#".to_string() + name)
     }
 
     #[test]
