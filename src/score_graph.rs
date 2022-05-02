@@ -86,45 +86,14 @@ impl ScoreGraph {
 
 #[cfg(test)]
 pub mod tests {
-    use crate::helpers::tests::mqa_node;
-
     use super::*;
+    use crate::{
+        helpers::tests::mqa_node,
+        test::{METRIC_GRAPH, SCORE_GRAPH},
+    };
 
     pub fn score_graph() -> ScoreGraph {
-        ScoreGraph(
-            parse_graphs(vec![
-                r#"
-                @prefix dcatno-mqa: <https://data.norge.no/vocabulary/dcatno-mqa#> .
-                @prefix dqv:        <http://www.w3.org/ns/dqv#> .
-                dcatno-mqa:accessibility
-                    a                       dqv:Dimension .
-                dcatno-mqa:interoperability
-                    a                       dqv:Dimension .
-                dcatno-mqa:accessUrlStatusCode
-                    a                       dqv:Metric ;
-                    dqv:inDimension         dcatno-mqa:accessibility .
-                dcatno-mqa:downloadUrlAvailability
-                    a                       dqv:Metric ;
-                    dqv:inDimension         dcatno-mqa:accessibility .
-                dcatno-mqa:formatAvailability
-                    a                       dqv:Metric ;
-                    dqv:inDimension         dcatno-mqa:interoperability .
-                "#
-                .to_string(),
-                r#"
-                @prefix dcatno-mqa: <https://data.norge.no/vocabulary/dcatno-mqa#> .
-                @prefix xsd:        <http://www.w3.org/2001/XMLSchema#> .
-                dcatno-mqa:accessUrlStatusCode
-                    dcatno-mqa:trueScore            "50"^^xsd:integer .
-                dcatno-mqa:downloadUrlAvailability
-                    dcatno-mqa:trueScore            "20"^^xsd:integer .
-                dcatno-mqa:formatAvailability
-                    dcatno-mqa:trueScore            "20"^^xsd:integer .
-                "#
-                .to_string(),
-            ])
-            .unwrap(),
-        )
+        ScoreGraph(parse_graphs(vec![METRIC_GRAPH.to_string(), SCORE_GRAPH.to_string()]).unwrap())
     }
 
     #[test]

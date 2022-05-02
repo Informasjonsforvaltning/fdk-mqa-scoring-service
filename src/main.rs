@@ -8,6 +8,7 @@ mod quality_measurements;
 mod score;
 mod score_graph;
 mod vocab;
+pub mod test;
 
 fn main() {
     let score_graph = ScoreGraph::load().unwrap();
