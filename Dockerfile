@@ -34,4 +34,3 @@ USER $APP_USER
 WORKDIR ${APP}
 
 CMD ./fdk-mqa-property-checker --brokers "$BROKERS" --schema-registry "$SCHEMA_REGISTRY"
-
