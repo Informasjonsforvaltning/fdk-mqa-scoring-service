@@ -85,51 +85,63 @@ pub fn quality_measurements(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::helpers::{
-        parse_graphs,
-        tests::{nnode, node},
+    use crate::{
+        helpers::{
+            parse_graphs,
+            tests::{mqa_node, node},
+        },
+        test::MEASUREMENT_GRAPH,
     };
 
     fn measurement_graph() -> Store {
-        parse_graphs(vec![r#"
-            <http://dataset.a> <http://www.w3.org/ns/dcat#distribution> _:f9b4fdb9378aa7013a762790b069eb7e .
-            <http://dataset.a> <http://www.w3.org/ns/dqv#hasQualityMeasurement> _:2e0587e7a28b492755a38437372b2e05 .
-            _:f9b4fdb9378aa7013a762790b069eb7e <http://www.w3.org/ns/dqv#hasQualityMeasurement> _:38fc04f528a7eef5b4102f9fdd4b9ab6 .
-            _:f9b4fdb9378aa7013a762790b069eb7e <http://www.w3.org/ns/dqv#hasQualityMeasurement> _:972515fe91764948597fbb3beebedc5 .
-            _:2e0587e7a28b492755a38437372b2e05 <http://www.w3.org/ns/dqv#value> "true"^^<http://www.w3.org/2001/XMLSchema#boolean> .
-            _:2e0587e7a28b492755a38437372b2e05 <http://www.w3.org/ns/dqv#isMeasurementOf> <http://metric.a> .
-            _:38fc04f528a7eef5b4102f9fdd4b9ab6 <http://www.w3.org/ns/dqv#value> "false"^^<http://www.w3.org/2001/XMLSchema#boolean> .
-            _:38fc04f528a7eef5b4102f9fdd4b9ab6 <http://www.w3.org/ns/dqv#isMeasurementOf> <http://metric.b> .
-            _:972515fe91764948597fbb3beebedc5 <http://www.w3.org/ns/dqv#value> "true"^^<http://www.w3.org/2001/XMLSchema#boolean> .
-            _:972515fe91764948597fbb3beebedc5 <http://www.w3.org/ns/dqv#isMeasurementOf> <http://metric.c> .
-        "#.to_string()]).unwrap()
+        parse_graphs(vec![MEASUREMENT_GRAPH.to_string()]).unwrap()
     }
 
     #[test]
     fn test_distributions() {
         let graph = measurement_graph();
         let distributions = distributions(&graph).unwrap();
-        assert_eq!(distributions.len(), 1);
+        assert_eq!(
+            distributions,
+            vec![
+                node("https://distribution.b"),
+                node("https://distribution.a")
+            ]
+        );
     }
 
     #[test]
     fn test_get_measurements() {
         let graph = measurement_graph();
-
         let measurements = quality_measurements(&graph).unwrap();
-        let distribution = distributions(&graph).unwrap().into_iter().next().unwrap();
 
-        assert_eq!(measurements.len(), 3);
+        assert_eq!(measurements.len(), 4);
         assert_eq!(
-            measurements.get(&(node("http://dataset.a"), nnode("http://metric.a"))),
+            measurements.get(&(
+                node("https://dataset.foo"),
+                mqa_node("downloadUrlAvailability")
+            )),
             Some(&QualityMeasurementValue::Bool(true))
         );
         assert_eq!(
-            measurements.get(&(distribution.clone(), nnode("http://metric.b"))),
+            measurements.get(&(
+                node("https://distribution.a"),
+                mqa_node("accessUrlStatusCode")
+            )),
+            Some(&QualityMeasurementValue::Bool(true))
+        );
+        assert_eq!(
+            measurements.get(&(
+                node("https://distribution.a"),
+                mqa_node("formatAvailability")
+            )),
             Some(&QualityMeasurementValue::Bool(false))
         );
         assert_eq!(
-            measurements.get(&(distribution.clone(), nnode("http://metric.c"))),
+            measurements.get(&(
+                node("https://distribution.b"),
+                mqa_node("formatAvailability")
+            )),
             Some(&QualityMeasurementValue::Bool(true))
         );
     }

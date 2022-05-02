@@ -83,9 +83,6 @@ pub mod tests {
     pub fn node(name: &str) -> NamedOrBlankNode {
         NamedOrBlankNode::NamedNode(NamedNode::new_unchecked(name))
     }
-    pub fn nnode(name: &str) -> NamedNode {
-        NamedNode::new_unchecked(name)
-    }
 
     pub fn mqa_node(name: &str) -> NamedNode {
         NamedNode::new_unchecked("https://data.norge.no/vocabulary/dcatno-mqa#".to_string() + name)

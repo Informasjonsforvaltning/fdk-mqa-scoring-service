@@ -151,14 +151,15 @@ mod tests {
     use super::*;
     use crate::{
         helpers::tests::{mqa_node, node},
-        test::SCORE_GRAPH,
+        test::MEASUREMENT_GRAPH,
     };
 
     #[test]
     fn test_score_measurements() {
         let metric_scores = crate::score_graph::tests::score_graph().scores().unwrap();
         let distribution_scores =
-            parse_graph_and_calculate_score(SCORE_GRAPH.to_string(), &metric_scores).unwrap();
+            parse_graph_and_calculate_score(MEASUREMENT_GRAPH.to_string(), &metric_scores).unwrap();
+
         let a = (
             node("https://distribution.a"),
             vec![
