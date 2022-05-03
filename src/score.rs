@@ -57,14 +57,14 @@ fn merge_dimension_scores(score: DimensionScores, other: &DimensionScores) -> Di
     score
         .into_iter()
         .zip(other)
-        .map(|((dimension, scores), (_, dataset_scores))| {
+        .map(|((dimension, scores), (_, other_scores))| {
             (
                 dimension,
                 scores
                     .into_iter()
-                    .zip(dataset_scores)
-                    .map(|((metric, value), (_, dataset_value))| {
-                        (metric, value.max(dataset_value.clone()))
+                    .zip(other_scores)
+                    .map(|((metric, value), (_, other_value))| {
+                        (metric, value.max(other_value.clone()))
                     })
                     .collect(),
             )
