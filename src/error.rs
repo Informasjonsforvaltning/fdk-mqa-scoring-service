@@ -1,6 +1,6 @@
 use oxigraph::{
     sparql::{EvaluationError, QueryError},
-    store::{LoaderError, StorageError},
+    store::{LoaderError, SerializerError, StorageError},
 };
 use thiserror::Error;
 
@@ -14,6 +14,8 @@ pub enum MqaError {
     QueryError(#[from] QueryError),
     #[error(transparent)]
     EvaluationError(#[from] EvaluationError),
+    #[error(transparent)]
+    SerializerError(#[from] SerializerError),
     #[error("{0}")]
     String(String),
 }

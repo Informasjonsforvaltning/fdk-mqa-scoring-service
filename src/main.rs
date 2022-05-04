@@ -1,4 +1,4 @@
-use score::{best_distribution, parse_graph_and_calculate_score, print_scores};
+use score::parse_graph_and_calculate_score;
 use score_graph::ScoreGraph;
 use std::fs;
 
@@ -17,11 +17,8 @@ fn main() {
     let measurement_graph_turtle = fs::read_to_string("measurement_graph.ttl")
         .unwrap()
         .to_string();
-    let distribution_scores =
+    let scored_graph =
         parse_graph_and_calculate_score(measurement_graph_turtle, &metric_scores).unwrap();
 
-    match best_distribution(distribution_scores) {
-        Some(scores) => print_scores(&vec![scores]),
-        None => (),
-    }
+    println!("{}", scored_graph);
 }

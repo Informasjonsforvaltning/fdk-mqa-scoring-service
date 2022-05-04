@@ -4,10 +4,7 @@ use crate::{
     helpers::{load_files, named_quad_subject, parse_graphs},
     vocab::{dcat_mqa, dqv},
 };
-use oxigraph::{
-    model::{vocab::rdf, NamedNode, NamedNodeRef, Term},
-    store::StorageError,
-};
+use oxigraph::model::{vocab::rdf, NamedNode, NamedNodeRef, Term};
 
 pub struct ScoreGraph(oxigraph::store::Store);
 pub type Dimension = (NamedNode, Vec<Metric>);
@@ -20,13 +17,8 @@ impl ScoreGraph {
             "graphs/dcatno-mqa-vocabulary.ttl",
             "graphs/dcatno-mqa-vocabulary-default-score-values.ttl",
         ];
-        match load_files(fnames) {
-            Ok(graphs) => match parse_graphs(graphs) {
-                Ok(store) => Ok(ScoreGraph(store)),
-                Err(e) => Err(e.into()),
-            },
-            Err(e) => Err(StorageError::Io(e).into()),
-        }
+        let graphs = load_files(fnames)?;
+        parse_graphs(graphs).map(|store| Self(store))
     }
 
     // Returns metrics and values of each score dimension.
@@ -64,7 +56,7 @@ impl ScoreGraph {
             dimension,
             dcat_mqa::TRUE_SCORE,
         );
-        execute_query(&q, &self.0)?
+        execute_query(&self.0, &q)?
             .into_iter()
             .map(|qs| {
                 let metric = match qs.get("metric") {

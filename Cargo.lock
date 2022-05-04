@@ -888,6 +888,7 @@ dependencies = [
  "oxigraph",
  "rand 0.8.5",
  "rdkafka",
+ "regex",
  "reqwest 0.10.10",
  "schema_registry_converter",
  "serde",

@@ -6,47 +6,48 @@ use oxigraph::model::{NamedNode, NamedOrBlankNode, NamedOrBlankNodeRef};
 use std::collections::HashMap;
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct DistributionScore(NamedOrBlankNode, Vec<DimensionScore>);
+pub struct DistributionScore(pub NamedOrBlankNode, pub Vec<DimensionScore>);
 #[derive(Clone, Debug, PartialEq)]
-pub struct DimensionScore(NamedNode, Vec<MetricScore>);
+pub struct DimensionScore(pub NamedNode, pub Vec<MetricScore>);
 #[derive(Clone, Debug, PartialEq)]
-pub struct MetricScore(NamedNode, Option<u64>);
+pub struct MetricScore(pub NamedNode, pub Option<u64>);
 
 /// Parses graph and calculates score for all metrics in all dimensions, for all distributions.
 pub fn parse_graph_and_calculate_score(
     graph: String,
     scores: &Vec<crate::score_graph::Dimension>,
-) -> Result<Vec<DistributionScore>, MqaError> {
-    MeasurementGraph::parse(graph)
-        .and_then(|measurement_graph| calculate_score(&measurement_graph, scores))
+) -> Result<String, MqaError> {
+    let mut measurement_graph = MeasurementGraph::parse(graph)?;
+    let (dataset_score, distribution_scores) = calculate_score(&measurement_graph, scores)?;
+    measurement_graph.insert_scores(&vec![dataset_score])?;
+    measurement_graph.insert_scores(&distribution_scores)?;
+    measurement_graph.to_string()
 }
 
 /// Calculates score for all metrics in all dimensions, for all distributions.
 fn calculate_score(
     store: &MeasurementGraph,
     scores: &Vec<crate::score_graph::Dimension>,
-) -> Result<Vec<DistributionScore>, MqaError> {
+) -> Result<(DistributionScore, Vec<DistributionScore>), MqaError> {
     let graph_measurements = store.quality_measurements()?;
 
-    let dataset = match store.datasets()?.into_iter().next() {
-        Some(dataset) => Ok(dataset),
-        None => Err(MqaError::from("store has no dataset")),
-    }?;
+    let dataset = store.dataset()?;
     let dataset_score = node_score(scores, &graph_measurements, dataset.as_ref());
 
     let distributions = store.distributions()?;
-    Ok(distributions
+    let distribution_scores = distributions
         .into_iter()
         .map(|distribution| {
             DistributionScore(
                 distribution.clone(),
-                merge_distribution_scores(
-                    node_score(scores, &graph_measurements, distribution.as_ref()),
-                    &dataset_score,
-                ),
+                node_score(scores, &graph_measurements, distribution.as_ref()),
             )
         })
-        .collect())
+        .collect();
+    Ok((
+        DistributionScore(dataset, dataset_score),
+        distribution_scores,
+    ))
 }
 
 // Merges two distribution scores by taking the max value of each metric.
@@ -162,9 +163,30 @@ mod tests {
 
     #[test]
     fn test_score_measurements() {
+        let measurement_graph = MeasurementGraph::parse(MEASUREMENT_GRAPH.to_string()).unwrap();
         let metric_scores = crate::score_graph::tests::score_graph().scores().unwrap();
-        let distribution_scores =
-            parse_graph_and_calculate_score(MEASUREMENT_GRAPH.to_string(), &metric_scores).unwrap();
+        let (dataset_score, distribution_scores) =
+            calculate_score(&measurement_graph, &metric_scores).unwrap();
+
+        assert_eq!(
+            dataset_score,
+            DistributionScore(
+                node("https://dataset.foo"),
+                vec![
+                    DimensionScore(
+                        mqa_node("interoperability"),
+                        vec![MetricScore(mqa_node("formatAvailability"), None)],
+                    ),
+                    DimensionScore(
+                        mqa_node("accessibility"),
+                        vec![
+                            MetricScore(mqa_node("downloadUrlAvailability"), Some(20)),
+                            MetricScore(mqa_node("accessUrlStatusCode"), None),
+                        ],
+                    ),
+                ],
+            )
+        );
 
         let a = DistributionScore(
             node("https://distribution.a"),
@@ -176,7 +198,7 @@ mod tests {
                 DimensionScore(
                     mqa_node("accessibility"),
                     vec![
-                        MetricScore(mqa_node("downloadUrlAvailability"), Some(20)),
+                        MetricScore(mqa_node("downloadUrlAvailability"), None),
                         MetricScore(mqa_node("accessUrlStatusCode"), Some(50)),
                     ],
                 ),
@@ -192,7 +214,7 @@ mod tests {
                 DimensionScore(
                     mqa_node("accessibility"),
                     vec![
-                        MetricScore(mqa_node("downloadUrlAvailability"), Some(20)),
+                        MetricScore(mqa_node("downloadUrlAvailability"), None),
                         MetricScore(mqa_node("accessUrlStatusCode"), None),
                     ],
                 ),

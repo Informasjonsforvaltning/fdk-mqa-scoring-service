@@ -5,10 +5,10 @@ use oxigraph::{
     sparql::{QueryResults, QuerySolution},
     store::{StorageError, Store},
 };
-use std::{fs, io};
+use std::fs;
 
 // Executes SPARQL query on store.
-pub fn execute_query(q: &str, store: &Store) -> Result<Vec<QuerySolution>, MqaError> {
+pub fn execute_query(store: &Store, q: &str) -> Result<Vec<QuerySolution>, MqaError> {
     match store.query(q) {
         Ok(QueryResults::Solutions(solutions)) => match solutions.collect() {
             Ok(vec) => Ok(vec),
@@ -20,10 +20,12 @@ pub fn execute_query(q: &str, store: &Store) -> Result<Vec<QuerySolution>, MqaEr
 }
 
 // Loads files from a list of filenames.
-pub fn load_files(fnames: Vec<&str>) -> Result<Vec<String>, io::Error> {
+pub fn load_files(fnames: Vec<&str>) -> Result<Vec<String>, MqaError> {
     fnames
         .into_iter()
-        .map(|fname| fs::read_to_string(fname))
+        .map(|fname| {
+            fs::read_to_string(fname).or_else(|e| Err(MqaError::from(StorageError::Io(e))))
+        })
         .collect()
 }
 

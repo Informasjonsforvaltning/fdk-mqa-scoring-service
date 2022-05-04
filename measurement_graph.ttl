@@ -110,7 +110,10 @@ _:f9b4fdb9378aa7013a762790b069eb7e <http://www.w3.org/ns/dqv#hasQualityMeasureme
 _:f9b4fdb9378aa7013a762790b069eb7e <http://www.w3.org/ns/dqv#hasQualityMeasurement> _:e2e93b98661a6f50e837434ae104a538 .
 _:f9b4fdb9378aa7013a762790b069eb7e <http://www.w3.org/ns/dqv#hasQualityMeasurement> _:ed65dfa5fa665e84b15bc107d9ccf087 .
 _:f9b4fdb9378aa7013a762790b069eb7e <http://www.w3.org/ns/dqv#hasQualityMeasurement> _:f014b40cce0afd210f34b97cf54e0a50 .
+
+
 _:fd38f82c4726d61ffd3920fd165ba303 <http://www.w3.org/ns/dqv#value> "false"^^<http://www.w3.org/2001/XMLSchema#boolean> .
+_:fd38f82c4726d61ffd3920fd165ba303 <http://www.w3.org/ns/dqv#score> "0"^^<http://www.w3.org/2001/XMLSchema#boolean> .
 _:fd38f82c4726d61ffd3920fd165ba303 <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/ns/dqv#QualityMeasurement> .
 _:fd38f82c4726d61ffd3920fd165ba303 <http://www.w3.org/ns/dqv#isMeasurementOf> <https://data.norge.no/vocabulary/dcatno-mqa#dateModifiedAvailability> .
 _:fd38f82c4726d61ffd3920fd165ba303 <http://www.w3.org/ns/dqv#computedOn> <https://registrering.fellesdatakatalog.digdir.no/catalogs/971277882/datasets/29a2bf37-5867-4c90-bc74-5a8c4e118572> .

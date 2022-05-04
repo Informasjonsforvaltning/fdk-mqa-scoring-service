@@ -17,6 +17,7 @@ http = "0.2.6"
 log = "0.4"
 oxigraph = "0.3.1"
 rand = "0.8.4"
+regex = "1.5"
 reqwest = { version = "0.10.8", features = ["blocking", "json"] }
 rdkafka = { version = "0.28", features = ["cmake-build"] }
 schema_registry_converter = { version = "2.1.0", features = ["avro", "blocking"] }

@@ -3,10 +3,15 @@ use crate::{
     helpers::{
         execute_query, named_or_blank_quad_object, named_or_blank_quad_subject, parse_graphs,
     },
-    vocab::{dcat, dqv},
+    score::{DimensionScore, DistributionScore, MetricScore},
+    vocab::{dcat, dcat_mqa, dqv},
 };
-use oxigraph::model::{vocab::xsd, Literal, NamedNode, NamedOrBlankNode, Term};
-use std::collections::HashMap;
+use oxigraph::{
+    io::GraphFormat,
+    model::{vocab::xsd, GraphNameRef, Literal, NamedNode, NamedOrBlankNode, Quad, Subject, Term},
+};
+use regex::Regex;
+use std::{collections::HashMap, io::Cursor};
 
 #[derive(Debug, PartialEq)]
 pub enum QualityMeasurementValue {
@@ -32,18 +37,27 @@ pub struct MeasurementGraph(oxigraph::store::Store);
 impl MeasurementGraph {
     // Loads graph from string.
     pub fn parse<G: ToString>(graph: G) -> Result<Self, MqaError> {
-        match parse_graphs(vec![graph.to_string()]) {
-            Ok(store) => Ok(MeasurementGraph(store)),
-            Err(e) => Err(e.into()),
+        let graph = Self::name_blank_nodes(graph.to_string())?;
+        parse_graphs(vec![graph]).map(|store| Self(store))
+    }
+
+    fn name_blank_nodes(graph: String) -> Result<String, MqaError> {
+        let re = Regex::new(r"_:(?P<id>[0-9a-f]+) ");
+        match re {
+            Ok(re) => Ok(re
+                .replace_all(&graph, "<https://blank.node#${id}> ")
+                .to_string()),
+            Err(e) => Err(e.to_string().into()),
         }
     }
 
     /// Retrieves all named or blank dataset nodes.
-    pub fn datasets(&self) -> Result<Vec<NamedOrBlankNode>, MqaError> {
+    pub fn dataset(&self) -> Result<NamedOrBlankNode, MqaError> {
         self.0
             .quads_for_pattern(None, Some(dcat::DISTRIBUTION.into()), None, None)
             .map(named_or_blank_quad_subject)
-            .collect()
+            .next()
+            .unwrap_or(Err(MqaError::from("store has no dataset")))
     }
 
     /// Retrieves all named or blank distribution nodes.
@@ -71,7 +85,7 @@ impl MeasurementGraph {
             dqv::IS_MEASUREMENT_OF,
             dqv::VALUE
         );
-        execute_query(&query, &self.0)?
+        execute_query(&self.0, &query)?
             .into_iter()
             .map(|qs| {
                 let node = match qs.get("node") {
@@ -90,6 +104,73 @@ impl MeasurementGraph {
                 Ok(((node, metric), value))
             })
             .collect()
+    }
+
+    pub fn insert_scores(
+        &mut self,
+        distributions: &Vec<DistributionScore>,
+    ) -> Result<(), MqaError> {
+        for DistributionScore(distribution, dimensions) in distributions {
+            for DimensionScore(_, metrics) in dimensions {
+                for MetricScore(metric, score) in metrics {
+                    let value = score.unwrap_or(0);
+                    let q = format!(
+                        "
+                            SELECT ?measurement
+                            WHERE {{
+                                {{
+                                    ?measurement {} {metric} .
+                                    ?measurement {} {distribution} .
+                                }}
+                            
+                            }}
+                        ",
+                        dqv::IS_MEASUREMENT_OF,
+                        dqv::COMPUTED_ON,
+                    );
+                    // Measurement of type metric might not exist in graph
+                    if let Some(qs) = execute_query(&self.0, &q)?.first() {
+                        let measurement = match qs.get("measurement") {
+                            Some(Term::NamedNode(node)) => {
+                                Ok(NamedOrBlankNode::NamedNode(node.clone()))
+                            }
+                            Some(Term::BlankNode(node)) => {
+                                Ok(NamedOrBlankNode::BlankNode(node.clone()))
+                            }
+                            _ => Err(format!(
+                                "unable to get measurement when inserting score: {}",
+                                metric
+                            )),
+                        }?;
+
+                        self.0.insert(
+                            &Quad::new(
+                                Subject::from(measurement),
+                                NamedNode::from(dcat_mqa::TRUE_SCORE),
+                                Term::Literal(Literal::new_typed_literal(
+                                    format!("{}", value),
+                                    xsd::INTEGER,
+                                )),
+                                GraphNameRef::DefaultGraph,
+                            )
+                            .into(),
+                        )?;
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
+
+    pub fn to_string(&self) -> Result<String, MqaError> {
+        let mut buff = Cursor::new(Vec::new());
+        self.0
+            .dump_graph(&mut buff, GraphFormat::Turtle, GraphNameRef::DefaultGraph)?;
+
+        match String::from_utf8(buff.into_inner()) {
+            Ok(str) => Ok(str),
+            Err(e) => Err(e.to_string().into()),
+        }
     }
 }
 
