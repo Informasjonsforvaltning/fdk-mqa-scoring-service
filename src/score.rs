@@ -113,7 +113,7 @@ fn node_score(
                         match graph_measurements.get(&(resource.into(), metric.clone())) {
                             Some(val) => MetricScore(
                                 metric.clone(),
-                                Some(if score_true(val) { score.clone() } else { 0 }),
+                                Some(if val.acceptable() { score.clone() } else { 0 }),
                             ),
                             None => MetricScore(metric.clone(), None),
                         }
@@ -122,15 +122,6 @@ fn node_score(
             )
         })
         .collect()
-}
-
-// Whether a measurement value is considered true.
-fn score_true(value: &QualityMeasurementValue) -> bool {
-    match value {
-        QualityMeasurementValue::Int(code) => 200 <= code.clone() && code.clone() < 300,
-        QualityMeasurementValue::Bool(bool) => bool.clone(),
-        _ => false,
-    }
 }
 
 /// Prints score for all metrics in all dimensions, for all distributions.

@@ -8,7 +8,7 @@ use crate::{
 };
 use oxigraph::{
     io::GraphFormat,
-    model::{vocab::xsd, GraphNameRef, Literal, NamedNode, NamedOrBlankNode, Quad, Subject, Term},
+    model::{vocab::xsd, GraphNameRef, Literal, NamedNode, NamedOrBlankNode, Term},
 };
 use regex::Regex;
 use std::{collections::HashMap, io::Cursor};
@@ -21,13 +21,32 @@ pub enum QualityMeasurementValue {
     Unknown(String),
 }
 
-impl From<Literal> for QualityMeasurementValue {
-    fn from(value: Literal) -> QualityMeasurementValue {
+impl TryFrom<Literal> for QualityMeasurementValue {
+    type Error = MqaError;
+
+    fn try_from(value: Literal) -> Result<Self, Self::Error> {
         match value.datatype() {
-            xsd::STRING => QualityMeasurementValue::String(value.value().to_string()),
-            xsd::BOOLEAN => QualityMeasurementValue::Bool(value.value().to_string() == "true"),
-            xsd::INTEGER => QualityMeasurementValue::Int(value.value().parse().unwrap_or(0)),
-            _ => QualityMeasurementValue::Unknown(value.value().to_string()),
+            xsd::STRING => Ok(Self::String(value.value().to_string())),
+            xsd::BOOLEAN => Ok(Self::Bool(value.value().to_string() == "true")),
+            xsd::INTEGER => match value.value().parse() {
+                Ok(value) => Ok(Self::Int(value)),
+                Err(e) => Err(MqaError::String(format!(
+                    "unable to parse quality measurement int: {}",
+                    value.value()
+                ))),
+            },
+            _ => Ok(Self::Unknown(value.value().to_string())),
+        }
+    }
+}
+
+impl QualityMeasurementValue {
+    // Whether a measurement value is considered true.
+    pub fn acceptable(&self) -> bool {
+        match self {
+            QualityMeasurementValue::Int(code) => 200 <= code.clone() && code.clone() < 300,
+            QualityMeasurementValue::Bool(bool) => bool.clone(),
+            _ => false,
         }
     }
 }
@@ -35,20 +54,24 @@ impl From<Literal> for QualityMeasurementValue {
 pub struct MeasurementGraph(oxigraph::store::Store);
 
 impl MeasurementGraph {
-    // Loads graph from string.
+    /// Loads graph from string.
     pub fn parse<G: ToString>(graph: G) -> Result<Self, MqaError> {
         let graph = Self::name_blank_nodes(graph.to_string())?;
         parse_graphs(vec![graph]).map(|store| Self(store))
     }
 
+    /// Replaces all blank nodes with named nodes.
     fn name_blank_nodes(graph: String) -> Result<String, MqaError> {
-        let re = Regex::new(r"_:(?P<id>[0-9a-f]+) ");
-        match re {
-            Ok(re) => Ok(re
-                .replace_all(&graph, "<https://blank.node#${id}> ")
-                .to_string()),
-            Err(e) => Err(e.to_string().into()),
-        }
+        let replaced = Regex::new(r"_:(?P<id>[0-9a-f]+) ")
+            .map(|re| re.replace_all(&graph, "<https://blank.node#${id}> "))?;
+        Ok(replaced.to_string())
+    }
+
+    // Undoes replacement of all blank nodes with named nodes.
+    fn undo_name_blank_nodes(graph: String) -> Result<String, MqaError> {
+        let replaced = Regex::new(r"<https://blank.node#(?P<id>[0-9a-f]+)> ")
+            .map(|re| re.replace_all(&graph, "_:${id} "))?;
+        Ok(replaced.to_string())
     }
 
     /// Retrieves all named or blank dataset nodes.
@@ -57,7 +80,7 @@ impl MeasurementGraph {
             .quads_for_pattern(None, Some(dcat::DISTRIBUTION.into()), None, None)
             .map(named_or_blank_quad_subject)
             .next()
-            .unwrap_or(Err(MqaError::from("store has no dataset")))
+            .unwrap_or(Err(MqaError::from("measurement graph has no datasets")))
     }
 
     /// Retrieves all named or blank distribution nodes.
@@ -98,8 +121,8 @@ impl MeasurementGraph {
                     _ => Err("unable to get quality measurement metric"),
                 }?;
                 let value = match qs.get("value") {
-                    Some(Term::Literal(value)) => Ok(QualityMeasurementValue::from(value.clone())),
-                    _ => Err("unable to get quality measurement value"),
+                    Some(Term::Literal(value)) => QualityMeasurementValue::try_from(value.clone()),
+                    _ => Err("unable to get quality measurement value".into()),
                 }?;
                 Ok(((node, metric), value))
             })
@@ -144,7 +167,7 @@ impl MeasurementGraph {
             .dump_graph(&mut buff, GraphFormat::Turtle, GraphNameRef::DefaultGraph)?;
 
         match String::from_utf8(buff.into_inner()) {
-            Ok(str) => Ok(str),
+            Ok(str) => MeasurementGraph::undo_name_blank_nodes(str),
             Err(e) => Err(e.to_string().into()),
         }
     }
@@ -163,7 +186,14 @@ mod tests {
     }
 
     #[test]
-    fn test_distributions() {
+    fn dataset() {
+        let graph = measurement_graph();
+        let dataset = graph.dataset().unwrap();
+        assert_eq!(dataset, node("https://dataset.foo"));
+    }
+
+    #[test]
+    fn distributions() {
         let graph = measurement_graph();
         let distributions = graph.distributions().unwrap();
         assert_eq!(
@@ -176,7 +206,7 @@ mod tests {
     }
 
     #[test]
-    fn test_get_measurements() {
+    fn get_measurements() {
         let graph = measurement_graph();
         let measurements = graph.quality_measurements().unwrap();
 

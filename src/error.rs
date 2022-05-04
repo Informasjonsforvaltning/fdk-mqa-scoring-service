@@ -16,6 +16,8 @@ pub enum MqaError {
     EvaluationError(#[from] EvaluationError),
     #[error(transparent)]
     SerializerError(#[from] SerializerError),
+    #[error(transparent)]
+    RegexError(#[from] regex::Error),
     #[error("{0}")]
     String(String),
 }
