@@ -1,12 +1,11 @@
 use crate::{
     error::MqaError,
-    helpers::{execute_query, named_or_blank_quad_object, named_or_blank_quad_subject},
+    helpers::{
+        execute_query, named_or_blank_quad_object, named_or_blank_quad_subject, parse_graphs,
+    },
     vocab::{dcat, dqv},
 };
-use oxigraph::{
-    model::{vocab::xsd, Literal, NamedNode, NamedOrBlankNode, Term},
-    store::Store,
-};
+use oxigraph::model::{vocab::xsd, Literal, NamedNode, NamedOrBlankNode, Term};
 use std::collections::HashMap;
 
 #[derive(Debug, PartialEq)]
@@ -28,28 +27,39 @@ impl From<Literal> for QualityMeasurementValue {
     }
 }
 
-/// Retrieves all named or blank dataset nodes.
-pub fn datasets(store: &Store) -> Result<Vec<NamedOrBlankNode>, MqaError> {
-    store
-        .quads_for_pattern(None, Some(dcat::DISTRIBUTION.into()), None, None)
-        .map(named_or_blank_quad_subject)
-        .collect()
-}
+pub struct MeasurementGraph(oxigraph::store::Store);
 
-/// Retrieves all named or blank distribution nodes.
-pub fn distributions(store: &Store) -> Result<Vec<NamedOrBlankNode>, MqaError> {
-    store
-        .quads_for_pattern(None, Some(dcat::DISTRIBUTION.into()), None, None)
-        .map(named_or_blank_quad_object)
-        .collect()
-}
+impl MeasurementGraph {
+    // Loads graph from string.
+    pub fn parse<G: ToString>(graph: G) -> Result<Self, MqaError> {
+        match parse_graphs(vec![graph.to_string()]) {
+            Ok(store) => Ok(MeasurementGraph(store)),
+            Err(e) => Err(e.into()),
+        }
+    }
 
-/// Retrieves all quality measurements in a graph, as map: (node, metric) -> value.
-pub fn quality_measurements(
-    store: &Store,
-) -> Result<HashMap<(NamedOrBlankNode, NamedNode), QualityMeasurementValue>, MqaError> {
-    let query = format!(
-        "
+    /// Retrieves all named or blank dataset nodes.
+    pub fn datasets(&self) -> Result<Vec<NamedOrBlankNode>, MqaError> {
+        self.0
+            .quads_for_pattern(None, Some(dcat::DISTRIBUTION.into()), None, None)
+            .map(named_or_blank_quad_subject)
+            .collect()
+    }
+
+    /// Retrieves all named or blank distribution nodes.
+    pub fn distributions(&self) -> Result<Vec<NamedOrBlankNode>, MqaError> {
+        self.0
+            .quads_for_pattern(None, Some(dcat::DISTRIBUTION.into()), None, None)
+            .map(named_or_blank_quad_object)
+            .collect()
+    }
+
+    /// Retrieves all quality measurements in a graph, as map: (node, metric) -> value.
+    pub fn quality_measurements(
+        &self,
+    ) -> Result<HashMap<(NamedOrBlankNode, NamedNode), QualityMeasurementValue>, MqaError> {
+        let query = format!(
+            "
             SELECT ?node ?metric ?value
             WHERE {{
                 ?node {} ?measurement .
@@ -57,50 +67,48 @@ pub fn quality_measurements(
                 ?measurement {} ?value .
             }}
         ",
-        dqv::HAS_QUALITY_MEASUREMENT,
-        dqv::IS_MEASUREMENT_OF,
-        dqv::VALUE
-    );
-    execute_query(&query, &store)?
-        .into_iter()
-        .map(|qs| {
-            let node = match qs.get("node") {
-                Some(Term::NamedNode(node)) => Ok(NamedOrBlankNode::NamedNode(node.clone())),
-                Some(Term::BlankNode(node)) => Ok(NamedOrBlankNode::BlankNode(node.clone())),
-                _ => Err("unable to get quality measurement node"),
-            }?;
-            let metric = match qs.get("metric") {
-                Some(Term::NamedNode(node)) => Ok(node.clone()),
-                _ => Err("unable to get quality measurement metric"),
-            }?;
-            let value = match qs.get("value") {
-                Some(Term::Literal(value)) => Ok(QualityMeasurementValue::from(value.clone())),
-                _ => Err("unable to get quality measurement value"),
-            }?;
-            Ok(((node, metric), value))
-        })
-        .collect()
+            dqv::HAS_QUALITY_MEASUREMENT,
+            dqv::IS_MEASUREMENT_OF,
+            dqv::VALUE
+        );
+        execute_query(&query, &self.0)?
+            .into_iter()
+            .map(|qs| {
+                let node = match qs.get("node") {
+                    Some(Term::NamedNode(node)) => Ok(NamedOrBlankNode::NamedNode(node.clone())),
+                    Some(Term::BlankNode(node)) => Ok(NamedOrBlankNode::BlankNode(node.clone())),
+                    _ => Err("unable to get quality measurement node"),
+                }?;
+                let metric = match qs.get("metric") {
+                    Some(Term::NamedNode(node)) => Ok(node.clone()),
+                    _ => Err("unable to get quality measurement metric"),
+                }?;
+                let value = match qs.get("value") {
+                    Some(Term::Literal(value)) => Ok(QualityMeasurementValue::from(value.clone())),
+                    _ => Err("unable to get quality measurement value"),
+                }?;
+                Ok(((node, metric), value))
+            })
+            .collect()
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::{
-        helpers::{
-            parse_graphs,
-            tests::{mqa_node, node},
-        },
+        helpers::tests::{mqa_node, node},
         test::MEASUREMENT_GRAPH,
     };
 
-    fn measurement_graph() -> Store {
-        parse_graphs(vec![MEASUREMENT_GRAPH.to_string()]).unwrap()
+    fn measurement_graph() -> MeasurementGraph {
+        MeasurementGraph::parse(MEASUREMENT_GRAPH).unwrap()
     }
 
     #[test]
     fn test_distributions() {
         let graph = measurement_graph();
-        let distributions = distributions(&graph).unwrap();
+        let distributions = graph.distributions().unwrap();
         assert_eq!(
             distributions,
             vec![
@@ -113,7 +121,7 @@ mod tests {
     #[test]
     fn test_get_measurements() {
         let graph = measurement_graph();
-        let measurements = quality_measurements(&graph).unwrap();
+        let measurements = graph.quality_measurements().unwrap();
 
         assert_eq!(measurements.len(), 4);
         assert_eq!(

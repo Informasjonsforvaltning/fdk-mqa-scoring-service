@@ -10,21 +10,10 @@ use oxigraph::{
 };
 
 pub struct ScoreGraph(oxigraph::store::Store);
-pub type DimensionScores = Vec<(NamedNode, MetricScores)>;
-pub type MetricScores = Vec<(NamedNode, u64)>;
+pub type Dimension = (NamedNode, Vec<Metric>);
+pub type Metric = (NamedNode, u64);
 
 impl ScoreGraph {
-    // Returns metrics and values of each score dimension.
-    pub fn scores(&self) -> Result<DimensionScores, MqaError> {
-        self.dimensions()?
-            .into_iter()
-            .map(|dimension| {
-                let metrics = self.metrics(dimension.as_ref())?;
-                Ok((dimension, metrics))
-            })
-            .collect()
-    }
-
     // Loads score graph from files.
     pub fn load() -> Result<Self, MqaError> {
         let fnames = vec![
@@ -40,6 +29,17 @@ impl ScoreGraph {
         }
     }
 
+    // Returns metrics and values of each score dimension.
+    pub fn scores(&self) -> Result<Vec<Dimension>, MqaError> {
+        self.dimensions()?
+            .into_iter()
+            .map(|dimension| {
+                let metrics = self.metrics(dimension.as_ref())?;
+                Ok((dimension, metrics))
+            })
+            .collect()
+    }
+
     /// Retrieves all named dimensions.
     fn dimensions(&self) -> Result<Vec<NamedNode>, MqaError> {
         self.0
@@ -49,7 +49,7 @@ impl ScoreGraph {
     }
 
     /// Retrieves all named metrics and their values, for a given dimension.
-    fn metrics(&self, dimension: NamedNodeRef) -> Result<MetricScores, MqaError> {
+    fn metrics(&self, dimension: NamedNodeRef) -> Result<Vec<Metric>, MqaError> {
         let q = format!(
             "
                 SELECT ?metric ?value
