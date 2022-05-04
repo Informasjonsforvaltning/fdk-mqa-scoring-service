@@ -106,6 +106,8 @@ impl MeasurementGraph {
             .collect()
     }
 
+    // Inserts score into measurement graph.
+    // The node in DistributionScore may be a dataset node, when inserting scores of a dataset.
     pub fn insert_scores(
         &mut self,
         distributions: &Vec<DistributionScore>,
@@ -113,49 +115,23 @@ impl MeasurementGraph {
         for DistributionScore(distribution, dimensions) in distributions {
             for DimensionScore(_, metrics) in dimensions {
                 for MetricScore(metric, score) in metrics {
-                    let value = score.unwrap_or(0);
                     let q = format!(
                         "
-                            SELECT ?measurement
+                            INSERT {{ ?measurement {} {} }}
                             WHERE {{
-                                {{
                                     ?measurement {} {metric} .
                                     ?measurement {} {distribution} .
-                                }}
-                            
                             }}
                         ",
+                        dcat_mqa::TRUE_SCORE,
+                        Literal::new_typed_literal(
+                            format! {"{}", score.unwrap_or(0)},
+                            xsd::INTEGER
+                        ),
                         dqv::IS_MEASUREMENT_OF,
                         dqv::COMPUTED_ON,
                     );
-                    // Measurement of type metric might not exist in graph
-                    if let Some(qs) = execute_query(&self.0, &q)?.first() {
-                        let measurement = match qs.get("measurement") {
-                            Some(Term::NamedNode(node)) => {
-                                Ok(NamedOrBlankNode::NamedNode(node.clone()))
-                            }
-                            Some(Term::BlankNode(node)) => {
-                                Ok(NamedOrBlankNode::BlankNode(node.clone()))
-                            }
-                            _ => Err(format!(
-                                "unable to get measurement when inserting score: {}",
-                                metric
-                            )),
-                        }?;
-
-                        self.0.insert(
-                            &Quad::new(
-                                Subject::from(measurement),
-                                NamedNode::from(dcat_mqa::TRUE_SCORE),
-                                Term::Literal(Literal::new_typed_literal(
-                                    format!("{}", value),
-                                    xsd::INTEGER,
-                                )),
-                                GraphNameRef::DefaultGraph,
-                            )
-                            .into(),
-                        )?;
-                    }
+                    self.0.update(&q)?;
                 }
             }
         }
