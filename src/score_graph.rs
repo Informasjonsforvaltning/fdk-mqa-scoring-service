@@ -47,13 +47,12 @@ impl ScoreGraph {
                 SELECT ?metric ?value
                 WHERE {{
                     ?metric a {} .
-                    ?metric {} {} .
+                    ?metric {} {dimension} .
                     ?metric {} ?value .
                 }}
             ",
             dqv::METRIC,
             dqv::IN_DIMENSION,
-            dimension,
             dcat_mqa::TRUE_SCORE,
         );
         execute_query(&self.0, &q)?
