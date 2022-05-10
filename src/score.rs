@@ -139,33 +139,10 @@ fn node_score(
         .collect()
 }
 
-/// Prints score for all metrics in all dimensions, for all distributions.
-pub fn print_scores(scores: &Vec<DistributionScore>) {
-    for DistributionScore(distribution, dimensions) in scores {
-        println!("{}", distribution);
-        for DimensionScore(dimension, measurements) in dimensions {
-            println!("  {}", dimension);
-            for MetricScore(measurement, score) in measurements {
-                println!(
-                    "    {}: {}",
-                    measurement,
-                    match score {
-                        Some(val) => val.to_string(),
-                        None => "-".to_string(),
-                    }
-                );
-            }
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{
-        helpers::tests::{mqa_node, node},
-        test::MEASUREMENT_GRAPH,
-    };
+    use crate::test::{mqa_node, node, MEASUREMENT_GRAPH};
 
     #[test]
     fn test_score_measurements() {

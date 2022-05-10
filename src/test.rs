@@ -1,3 +1,5 @@
+use oxigraph::model::{NamedNode, NamedOrBlankNode};
+
 pub const MEASUREMENT_GRAPH: &str = r#"
     <https://dataset.foo> <http://www.w3.org/ns/dcat#distribution> <https://distribution.a>  .
     <https://dataset.foo> <http://www.w3.org/ns/dcat#distribution> <https://distribution.b>  .
@@ -47,3 +49,11 @@ pub const SCORE_GRAPH: &str = r#"
     dcatno-mqa:formatAvailability
         dcatno-mqa:trueScore            "20"^^xsd:integer .
     "#;
+
+pub fn node(name: &str) -> NamedOrBlankNode {
+    NamedOrBlankNode::NamedNode(NamedNode::new_unchecked(name))
+}
+
+pub fn mqa_node(name: &str) -> NamedNode {
+    NamedNode::new_unchecked("https://data.norge.no/vocabulary/dcatno-mqa#".to_string() + name)
+}

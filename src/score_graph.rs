@@ -78,10 +78,7 @@ impl ScoreGraph {
 #[cfg(test)]
 pub mod tests {
     use super::*;
-    use crate::{
-        helpers::tests::mqa_node,
-        test::{METRIC_GRAPH, SCORE_GRAPH},
-    };
+    use crate::test::{mqa_node, METRIC_GRAPH, SCORE_GRAPH};
 
     pub fn score_graph() -> ScoreGraph {
         ScoreGraph(parse_graphs(vec![METRIC_GRAPH.to_string(), SCORE_GRAPH.to_string()]).unwrap())

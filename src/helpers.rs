@@ -78,15 +78,3 @@ pub fn named_or_blank_quad_object(
         )),
     }
 }
-
-pub mod tests {
-    use oxigraph::model::{NamedNode, NamedOrBlankNode};
-
-    pub fn node(name: &str) -> NamedOrBlankNode {
-        NamedOrBlankNode::NamedNode(NamedNode::new_unchecked(name))
-    }
-
-    pub fn mqa_node(name: &str) -> NamedNode {
-        NamedNode::new_unchecked("https://data.norge.no/vocabulary/dcatno-mqa#".to_string() + name)
-    }
-}
