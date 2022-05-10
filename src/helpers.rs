@@ -23,9 +23,7 @@ pub fn execute_query(store: &Store, q: &str) -> Result<Vec<QuerySolution>, MqaEr
 pub fn load_files(fnames: Vec<&str>) -> Result<Vec<String>, MqaError> {
     fnames
         .into_iter()
-        .map(|fname| {
-            fs::read_to_string(fname).or_else(|e| Err(MqaError::from(StorageError::Io(e))))
-        })
+        .map(|fname| fs::read_to_string(fname).or_else(|e| Err(StorageError::Io(e).into())))
         .collect()
 }
 
@@ -47,9 +45,7 @@ pub fn parse_graphs(graphs: Vec<String>) -> Result<Store, MqaError> {
 pub fn named_quad_subject(result: Result<Quad, StorageError>) -> Result<NamedNode, MqaError> {
     match result?.subject {
         Subject::NamedNode(node) => Ok(node),
-        _ => Err(MqaError::String(
-            "unable to get named quad object".to_string(),
-        )),
+        _ => Err("unable to get named quad object".into()),
     }
 }
 
@@ -60,9 +56,7 @@ pub fn named_or_blank_quad_subject(
     match result?.subject {
         Subject::NamedNode(node) => Ok(NamedOrBlankNode::NamedNode(node)),
         Subject::BlankNode(node) => Ok(NamedOrBlankNode::BlankNode(node)),
-        _ => Err(MqaError::String(
-            "unable to get named or blank quad subject".to_string(),
-        )),
+        _ => Err("unable to get named or blank quad subject".into()),
     }
 }
 
@@ -73,8 +67,6 @@ pub fn named_or_blank_quad_object(
     match result?.object {
         Term::NamedNode(node) => Ok(NamedOrBlankNode::NamedNode(node)),
         Term::BlankNode(node) => Ok(NamedOrBlankNode::BlankNode(node)),
-        _ => Err(MqaError::String(
-            "unable to get named or blank quad object".to_string(),
-        )),
+        _ => Err("unable to get named or blank quad object".into()),
     }
 }

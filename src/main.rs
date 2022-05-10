@@ -4,7 +4,8 @@ use std::fs;
 
 mod error;
 mod helpers;
-mod quality_measurements;
+mod measurement_value;
+mod measurement_graph;
 mod score;
 mod score_graph;
 mod test;

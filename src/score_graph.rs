@@ -60,14 +60,16 @@ impl ScoreGraph {
             .map(|qs| {
                 let metric = match qs.get("metric") {
                     Some(Term::NamedNode(node)) => Ok(node.clone()),
-                    _ => Err("unable to get metric"),
+                    _ => Err("unable to read metric from score graph"),
                 }?;
                 let value = match qs.get("value") {
-                    Some(Term::Literal(literal)) => match literal.value().parse::<u64>() {
-                        Ok(score) => Ok(score),
-                        _ => Err("unable to parse metric score".into()),
-                    },
-                    _ => Err("unable to get metric value"),
+                    Some(Term::Literal(literal)) => literal.value().parse::<u64>().or_else(|_| {
+                        Err(format!(
+                            "unable to parse metric score from score graph: '{}'",
+                            literal.value()
+                        ))
+                    }),
+                    _ => Err("unable to read metric value from score graph".into()),
                 }?;
                 Ok((metric, value))
             })
@@ -85,25 +87,17 @@ pub mod tests {
     }
 
     #[test]
-    fn store() {
-        let _ = ScoreGraph::load().unwrap();
-    }
-
-    #[test]
     fn dimensions() {
-        let score_graph = score_graph();
-        let dimension = score_graph.dimensions().unwrap();
         assert_eq!(
-            dimension,
+            score_graph().dimensions().unwrap(),
             vec![mqa_node("interoperability"), mqa_node("accessibility"),]
         )
     }
 
     #[test]
     fn score() {
-        let score_graph = score_graph();
         assert_eq!(
-            score_graph.scores().unwrap(),
+            score_graph().scores().unwrap(),
             vec![
                 (
                     mqa_node("interoperability"),
@@ -118,5 +112,10 @@ pub mod tests {
                 )
             ]
         );
+    }
+
+    #[test]
+    fn full_size_graph() {
+        assert!(ScoreGraph::load().is_ok());
     }
 }

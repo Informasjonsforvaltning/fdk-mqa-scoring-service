@@ -3,6 +3,7 @@ use crate::{
     helpers::{
         execute_query, named_or_blank_quad_object, named_or_blank_quad_subject, parse_graphs,
     },
+    measurement_value::MeasurementValue,
     score::{DimensionScore, DistributionScore, MetricScore},
     vocab::{dcat, dcat_mqa, dqv},
 };
@@ -12,45 +13,6 @@ use oxigraph::{
 };
 use regex::Regex;
 use std::{collections::HashMap, io::Cursor};
-
-#[derive(Debug, PartialEq)]
-pub enum QualityMeasurementValue {
-    Bool(bool),
-    Int(i64),
-    String(String),
-    Unknown(String),
-}
-
-impl TryFrom<Literal> for QualityMeasurementValue {
-    type Error = MqaError;
-
-    fn try_from(value: Literal) -> Result<Self, Self::Error> {
-        match value.datatype() {
-            xsd::STRING => Ok(Self::String(value.value().to_string())),
-            xsd::BOOLEAN => Ok(Self::Bool(value.value().to_string() == "true")),
-            xsd::INTEGER => match value.value().parse() {
-                Ok(value) => Ok(Self::Int(value)),
-                Err(_) => Err(format!(
-                    "unable to parse quality measurement int: {}",
-                    value.value()
-                )
-                .into()),
-            },
-            _ => Ok(Self::Unknown(value.value().to_string())),
-        }
-    }
-}
-
-impl QualityMeasurementValue {
-    // Whether a measurement value is considered true.
-    pub fn acceptable(&self) -> bool {
-        match self {
-            QualityMeasurementValue::Int(code) => 200 <= code.clone() && code.clone() < 300,
-            QualityMeasurementValue::Bool(bool) => bool.clone(),
-            _ => false,
-        }
-    }
-}
 
 pub struct MeasurementGraph(oxigraph::store::Store);
 
@@ -96,7 +58,7 @@ impl MeasurementGraph {
     /// Retrieves all quality measurements in a graph, as map: (node, metric) -> value.
     pub fn quality_measurements(
         &self,
-    ) -> Result<HashMap<(NamedOrBlankNode, NamedNode), QualityMeasurementValue>, MqaError> {
+    ) -> Result<HashMap<(NamedOrBlankNode, NamedNode), MeasurementValue>, MqaError> {
         let query = format!(
             "
             SELECT ?node ?metric ?value
@@ -123,7 +85,7 @@ impl MeasurementGraph {
                     _ => Err("unable to get quality measurement metric"),
                 }?;
                 let value = match qs.get("value") {
-                    Some(Term::Literal(value)) => QualityMeasurementValue::try_from(value.clone()),
+                    Some(Term::Literal(value)) => MeasurementValue::try_from(value.clone()),
                     _ => Err("unable to get quality measurement value".into()),
                 }?;
                 Ok(((node, metric), value))
@@ -254,28 +216,28 @@ mod tests {
                 node("https://dataset.foo"),
                 mqa_node("downloadUrlAvailability")
             )),
-            Some(&QualityMeasurementValue::Bool(true))
+            Some(&MeasurementValue::Bool(true))
         );
         assert_eq!(
             measurements.get(&(
                 node("https://distribution.a"),
                 mqa_node("accessUrlStatusCode")
             )),
-            Some(&QualityMeasurementValue::Bool(true))
+            Some(&MeasurementValue::Bool(true))
         );
         assert_eq!(
             measurements.get(&(
                 node("https://distribution.a"),
                 mqa_node("formatAvailability")
             )),
-            Some(&QualityMeasurementValue::Bool(false))
+            Some(&MeasurementValue::Bool(false))
         );
         assert_eq!(
             measurements.get(&(
                 node("https://distribution.b"),
                 mqa_node("formatAvailability")
             )),
-            Some(&QualityMeasurementValue::Bool(true))
+            Some(&MeasurementValue::Bool(true))
         );
     }
 }

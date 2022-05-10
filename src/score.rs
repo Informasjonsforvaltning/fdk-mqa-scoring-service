@@ -1,6 +1,5 @@
 use crate::{
-    error::MqaError,
-    quality_measurements::{MeasurementGraph, QualityMeasurementValue},
+    error::MqaError, measurement_graph::MeasurementGraph, measurement_value::MeasurementValue,
 };
 use oxigraph::model::{NamedNode, NamedOrBlankNode, NamedOrBlankNodeRef};
 use std::collections::HashMap;
@@ -26,15 +25,15 @@ pub fn parse_graph_and_calculate_score(
 
 /// Calculates score for all metrics in all dimensions, for all distributions.
 fn calculate_score(
-    store: &MeasurementGraph,
+    measurement_graph: &MeasurementGraph,
     scores: &Vec<crate::score_graph::Dimension>,
 ) -> Result<(DistributionScore, Vec<DistributionScore>), MqaError> {
-    let graph_measurements = store.quality_measurements()?;
+    let graph_measurements = measurement_graph.quality_measurements()?;
 
-    let dataset = store.dataset()?;
+    let dataset = measurement_graph.dataset()?;
     let dataset_score = node_score(scores, &graph_measurements, dataset.as_ref());
 
-    let distributions = store.distributions()?;
+    let distributions = measurement_graph.distributions()?;
     let distribution_scores: Vec<DistributionScore> = distributions
         .into_iter()
         .map(|distribution| {
@@ -114,7 +113,7 @@ pub fn best_distribution(distribution_scores: Vec<DistributionScore>) -> Option<
 /// Calculates score for all metrics in all dimensions, for a distribution or dataset resource.
 fn node_score(
     dimension_scores: &Vec<crate::score_graph::Dimension>,
-    graph_measurements: &HashMap<(NamedOrBlankNode, NamedNode), QualityMeasurementValue>,
+    graph_measurements: &HashMap<(NamedOrBlankNode, NamedNode), MeasurementValue>,
     resource: NamedOrBlankNodeRef,
 ) -> Vec<DimensionScore> {
     dimension_scores
