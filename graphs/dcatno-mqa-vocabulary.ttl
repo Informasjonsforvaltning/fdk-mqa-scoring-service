@@ -124,6 +124,11 @@ dcatno-mqa:temporalAvailability
     dqv:expectedDataType    xsd:boolean ;
     dqv:inDimension         dcatno-mqa:findability .
 
+dcatno-mqa:findabilityScoring
+    a                       dqv:Metric ;
+    skos:definition         "It is calculated a score from the measurements results based on the corresponding score values."@en ;
+    dqv:expectedDataType    xsd:integer ;
+    dqv:inDimension         dcatno-mqa:findability .
 
 
 # Accessibility
@@ -146,6 +151,11 @@ dcatno-mqa:downloadUrlStatusCode
     dqv:expectedDataType    xsd:integer ;
     dqv:inDimension         dcatno-mqa:accessibility .
 
+dcatno-mqa:accessibilityScoring
+    a                       dqv:Metric ;
+    skos:definition         "It is calculated a score from the measurements results based on the corresponding score values."@en ;
+    dqv:expectedDataType    xsd:integer ;
+    dqv:inDimension         dcatno-mqa:accessibility .
 
 
 # Interoperability
@@ -204,6 +214,11 @@ dcatno-mqa:atLeastFourStars
     dqv:expectedDataType    xsd:boolean ;
     dqv:inDimension         dcatno-mqa:interoperability .
 
+dcatno-mqa:interoperabilityScoring
+    a                       dqv:Metric ;
+    skos:definition         "It is calculated a score from the measurements results based on the corresponding score values."@en ;
+    dqv:expectedDataType    xsd:integer ;
+    dqv:inDimension         dcatno-mqa:interoperability .
 
 # Reusability
 
@@ -249,6 +264,11 @@ dcatno-mqa:openLicense # Norwegian extension
     dqv:expectedDataType    xsd:boolean ;
     dqv:inDimension         dcatno-mqa:reusability .
 
+dcatno-mqa:reusabilityScoring
+    a                       dqv:Metric ;
+    skos:definition         "It is calculated a score from the measurements results based on the corresponding score values."@en ;
+    dqv:expectedDataType    xsd:integer ;
+    dqv:inDimension         dcatno-mqa:reusability .
 
 # Contextuality
 
@@ -276,7 +296,7 @@ dcatno-mqa:dateModifiedAvailability
     dqv:expectedDataType    xsd:boolean ;
     dqv:inDimension         dcatno-mqa:contextuality .
 
-dcatno-mqa:score
+dcatno-mqa:contextualityScoring
     a                       dqv:Metric ;
     skos:definition         "It is calculated a score from the measurements results based on the corresponding score values."@en ;
     dqv:expectedDataType    xsd:integer ;
@@ -290,3 +310,8 @@ dcatno-mqa:trueScore
 
 dcatno-mqa:falseScore
     a                       rdfs:Property .
+
+dcatno-mqa:scoring
+    a                       dqv:Metric ;
+    skos:definition         "It is calculated a score from the measurements results based on the corresponding score values."@en ;
+    dqv:expectedDataType    xsd:integer .

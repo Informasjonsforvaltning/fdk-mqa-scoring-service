@@ -35,7 +35,7 @@ fn calculate_score(
     let dataset_score = node_score(scores, &graph_measurements, dataset.as_ref());
 
     let distributions = store.distributions()?;
-    let distribution_scores = distributions
+    let distribution_scores: Vec<DistributionScore> = distributions
         .into_iter()
         .map(|distribution| {
             DistributionScore(
@@ -44,6 +44,21 @@ fn calculate_score(
             )
         })
         .collect();
+
+    let dataset_merged_distribution_scores: Vec<DistributionScore> = distribution_scores
+        .iter()
+        .map(|DistributionScore(distribution, score)| {
+            DistributionScore(
+                distribution.clone(),
+                merge_distribution_scores(score.clone(), &dataset_score),
+            )
+        })
+        .collect();
+
+    let dataset_score = best_distribution(dataset_merged_distribution_scores)
+        .map(|DistributionScore(_, score)| score)
+        .unwrap_or(dataset_score);
+
     Ok((
         DistributionScore(dataset, dataset_score),
         distribution_scores,

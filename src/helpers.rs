@@ -15,7 +15,7 @@ pub fn execute_query(store: &Store, q: &str) -> Result<Vec<QuerySolution>, MqaEr
             Err(e) => Err(e.into()),
         },
         Err(e) => Err(e.into()),
-        _ => Err("query error".into()),
+        _ => Err("unable to execute query".into()),
     }
 }
 

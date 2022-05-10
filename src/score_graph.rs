@@ -21,7 +21,7 @@ impl ScoreGraph {
         parse_graphs(graphs).map(|store| Self(store))
     }
 
-    // Returns metrics and values of each score dimension.
+    // Retrieves the metrics and values of each score dimension.
     pub fn scores(&self) -> Result<Vec<Dimension>, MqaError> {
         self.dimensions()?
             .into_iter()

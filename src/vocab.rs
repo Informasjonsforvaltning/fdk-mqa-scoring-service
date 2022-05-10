@@ -131,6 +131,9 @@ pub mod dcat_mqa {
     pub const TRUE_SCORE: NamedNodeRef<'_> =
         NamedNodeRef::new_unchecked("https://data.norge.no/vocabulary/dcatno-mqa#trueScore");
 
+    pub const SCORING: NamedNodeRef<'_> =
+        NamedNodeRef::new_unchecked("https://data.norge.no/vocabulary/dcatno-mqa#scoring");
+
     // Findability
     pub const KEYWORD_AVAILABILITY: NamedNodeRef<'_> = NamedNodeRef::new_unchecked(
         "https://data.norge.no/vocabulary/dcatno-mqa#keywordAvailability",

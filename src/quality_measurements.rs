@@ -8,7 +8,7 @@ use crate::{
 };
 use oxigraph::{
     io::GraphFormat,
-    model::{vocab::xsd, GraphNameRef, Literal, NamedNode, NamedOrBlankNode, Term},
+    model::{vocab::xsd, GraphNameRef, Literal, NamedNode, NamedOrBlankNode, Quad, Term},
 };
 use regex::Regex;
 use std::{collections::HashMap, io::Cursor};
@@ -30,10 +30,11 @@ impl TryFrom<Literal> for QualityMeasurementValue {
             xsd::BOOLEAN => Ok(Self::Bool(value.value().to_string() == "true")),
             xsd::INTEGER => match value.value().parse() {
                 Ok(value) => Ok(Self::Int(value)),
-                Err(e) => Err(MqaError::String(format!(
+                Err(_) => Err(format!(
                     "unable to parse quality measurement int: {}",
                     value.value()
-                ))),
+                )
+                .into()),
             },
             _ => Ok(Self::Unknown(value.value().to_string())),
         }
@@ -61,6 +62,7 @@ impl MeasurementGraph {
     }
 
     /// Replaces all blank nodes with named nodes.
+    /// Enables SPARQL query with blank nodes as identifiers.
     fn name_blank_nodes(graph: String) -> Result<String, MqaError> {
         let replaced = Regex::new(r"_:(?P<id>[0-9a-f]+) ")
             .map(|re| re.replace_all(&graph, "<https://blank.node#${id}> "))?;
@@ -129,38 +131,77 @@ impl MeasurementGraph {
             .collect()
     }
 
-    // Inserts score into measurement graph.
-    // The node in DistributionScore may be a dataset node, when inserting scores of a dataset.
+    /// Inserts score into measurement graph.
+    /// The node in DistributionScore may be a dataset node, when inserting scores of a dataset.
     pub fn insert_scores(
         &mut self,
         distributions: &Vec<DistributionScore>,
     ) -> Result<(), MqaError> {
         for DistributionScore(distribution, dimensions) in distributions {
-            for DimensionScore(_, metrics) in dimensions {
-                for MetricScore(metric, score) in metrics {
-                    let q = format!(
-                        "
-                            INSERT {{ ?measurement {} {} }}
-                            WHERE {{
-                                    ?measurement {} {metric} .
-                                    ?measurement {} {distribution} .
-                            }}
-                        ",
-                        dcat_mqa::TRUE_SCORE,
-                        Literal::new_typed_literal(
-                            format! {"{}", score.unwrap_or(0)},
-                            xsd::INTEGER
-                        ),
-                        dqv::IS_MEASUREMENT_OF,
-                        dqv::COMPUTED_ON,
-                    );
-                    self.0.update(&q)?;
-                }
+            for DimensionScore(dimension, metrics) in dimensions {
+                self.insert_dimension_score(distribution, dimension, metrics)?;
+                self.insert_measurement_scores(distribution, metrics)?;
             }
         }
         Ok(())
     }
 
+    /// Insert a distribution's dimension score into graph.
+    fn insert_dimension_score(
+        &self,
+        distribution: &NamedOrBlankNode,
+        dimension: &NamedNode,
+        metrics: &Vec<MetricScore>,
+    ) -> Result<(), MqaError> {
+        let sum = metrics
+            .iter()
+            .filter_map(|MetricScore(_, score)| score.clone())
+            .sum::<u64>();
+
+        let entry = Quad {
+            subject: distribution.clone().into(),
+            predicate: NamedNode::new_unchecked(
+                format!(
+                    "{}Scoring",
+                    dimension.as_str().replace("<", "").replace(">", "")
+                )
+                .as_str(),
+            ),
+            object: Literal::new_typed_literal(format! {"{}", sum}, xsd::INTEGER).into(),
+            graph_name: GraphNameRef::DefaultGraph.into(),
+        };
+
+        self.0.insert(&entry)?;
+        Ok(())
+    }
+
+    /// Insert a distribution's measurement scores into graph.
+    fn insert_measurement_scores(
+        &self,
+        distribution: &NamedOrBlankNode,
+        metrics: &Vec<MetricScore>,
+    ) -> Result<(), MqaError> {
+        for MetricScore(metric, score) in metrics {
+            let q = format!(
+                "
+                    INSERT {{ ?measurement {} {} }}
+                    WHERE {{
+                            ?measurement {} {metric} .
+                            ?measurement {} {distribution} .
+                    }}
+                ",
+                dcat_mqa::SCORING,
+                Literal::new_typed_literal(format! {"{}", score.unwrap_or_default()}, xsd::INTEGER),
+                dqv::IS_MEASUREMENT_OF,
+                dqv::COMPUTED_ON,
+            );
+            self.0.update(&q)?;
+        }
+
+        Ok(())
+    }
+
+    /// Dump graph to string.
     pub fn to_string(&self) -> Result<String, MqaError> {
         let mut buff = Cursor::new(Vec::new());
         self.0
