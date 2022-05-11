@@ -5,7 +5,7 @@ use oxigraph::model::{NamedNode, NamedOrBlankNode, NamedOrBlankNodeRef};
 use std::collections::HashMap;
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct DistributionScore(pub NamedOrBlankNode, pub Vec<DimensionScore>);
+pub struct Score(pub NamedOrBlankNode, pub Vec<DimensionScore>);
 #[derive(Clone, Debug, PartialEq)]
 pub struct DimensionScore(pub NamedNode, pub Vec<MetricScore>);
 #[derive(Clone, Debug, PartialEq)]
@@ -27,27 +27,27 @@ pub fn parse_graph_and_calculate_score(
 fn calculate_score(
     measurement_graph: &MeasurementGraph,
     scores: &Vec<crate::score_graph::Dimension>,
-) -> Result<(DistributionScore, Vec<DistributionScore>), MqaError> {
+) -> Result<(Score, Vec<Score>), MqaError> {
     let graph_measurements = measurement_graph.quality_measurements()?;
 
     let dataset = measurement_graph.dataset()?;
     let dataset_score = node_score(scores, &graph_measurements, dataset.as_ref());
 
     let distributions = measurement_graph.distributions()?;
-    let distribution_scores: Vec<DistributionScore> = distributions
+    let distribution_scores: Vec<Score> = distributions
         .into_iter()
         .map(|distribution| {
-            DistributionScore(
+            Score(
                 distribution.clone(),
                 node_score(scores, &graph_measurements, distribution.as_ref()),
             )
         })
         .collect();
 
-    let dataset_merged_distribution_scores: Vec<DistributionScore> = distribution_scores
+    let dataset_merged_distribution_scores: Vec<Score> = distribution_scores
         .iter()
-        .map(|DistributionScore(distribution, score)| {
-            DistributionScore(
+        .map(|Score(distribution, score)| {
+            Score(
                 distribution.clone(),
                 merge_distribution_scores(score.clone(), &dataset_score),
             )
@@ -55,13 +55,10 @@ fn calculate_score(
         .collect();
 
     let dataset_score = best_distribution(dataset_merged_distribution_scores)
-        .map(|DistributionScore(_, score)| score)
+        .map(|Score(_, score)| score)
         .unwrap_or(dataset_score);
 
-    Ok((
-        DistributionScore(dataset, dataset_score),
-        distribution_scores,
-    ))
+    Ok((Score(dataset, dataset_score), distribution_scores))
 }
 
 // Merges two distribution scores by taking the max value of each metric.
@@ -93,10 +90,10 @@ fn merge_distribution_scores(
 }
 
 // Find best scoring distribution.
-pub fn best_distribution(distribution_scores: Vec<DistributionScore>) -> Option<DistributionScore> {
+pub fn best_distribution(distribution_scores: Vec<Score>) -> Option<Score> {
     distribution_scores
         .iter()
-        .max_by_key::<u64, _>(|DistributionScore(_, dimensions)| {
+        .max_by_key::<u64, _>(|Score(_, dimensions)| {
             dimensions
                 .iter()
                 .map::<u64, _>(|DimensionScore(_, metrics)| {
@@ -158,7 +155,7 @@ mod tests {
 
         assert_eq!(
             dataset_score,
-            DistributionScore(
+            Score(
                 node("https://dataset.foo"),
                 vec![
                     DimensionScore(
@@ -176,7 +173,7 @@ mod tests {
             )
         );
 
-        let a = DistributionScore(
+        let a = Score(
             node("https://distribution.a"),
             vec![
                 DimensionScore(
@@ -192,7 +189,7 @@ mod tests {
                 ),
             ],
         );
-        let b = DistributionScore(
+        let b = Score(
             node("https://distribution.b"),
             vec![
                 DimensionScore(

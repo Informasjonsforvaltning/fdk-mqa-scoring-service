@@ -4,7 +4,7 @@ use crate::{
         execute_query, named_or_blank_quad_object, named_or_blank_quad_subject, parse_graphs,
     },
     measurement_value::MeasurementValue,
-    score::{DimensionScore, DistributionScore, MetricScore},
+    score::{DimensionScore, MetricScore, Score},
     vocab::{dcat, dcat_mqa, dqv, rdf_syntax},
 };
 use oxigraph::{
@@ -98,24 +98,21 @@ impl MeasurementGraph {
     }
 
     /// Inserts score into measurement graph.
-    /// The node in DistributionScore may be a dataset node, when inserting scores of a dataset.
-    pub fn insert_scores(
-        &mut self,
-        distributions: &Vec<DistributionScore>,
-    ) -> Result<(), MqaError> {
-        for DistributionScore(distribution, dimensions) in distributions {
+    /// The node in Score may be a dataset node or distribution node.
+    pub fn insert_scores(&mut self, scores: &Vec<Score>) -> Result<(), MqaError> {
+        for Score(node, dimensions) in scores {
             for DimensionScore(dimension, metrics) in dimensions {
-                self.insert_dimension_score(distribution.as_ref(), dimension.as_ref(), metrics)?;
-                self.insert_measurement_scores(distribution.as_ref(), metrics)?;
+                self.insert_dimension_score(node.as_ref(), dimension.as_ref(), metrics)?;
+                self.insert_measurement_scores(node.as_ref(), metrics)?;
             }
         }
         Ok(())
     }
 
-    /// Insert a distribution's dimension score into graph.
+    /// Insert a dimension score into graph.
     fn insert_dimension_score(
         &mut self,
-        distribution: NamedOrBlankNodeRef,
+        node: NamedOrBlankNodeRef,
         dimension: NamedNodeRef,
         metrics: &Vec<MetricScore>,
     ) -> Result<(), MqaError> {
@@ -126,7 +123,7 @@ impl MeasurementGraph {
             )
             .as_str(),
         )?;
-        let measurement = self.get_or_insert_measurement(distribution, metric.as_ref())?;
+        let measurement = self.get_or_insert_measurement(node, metric.as_ref())?;
         let sum = metrics
             .iter()
             .filter_map(|MetricScore(_, score)| score.clone())
@@ -143,10 +140,10 @@ impl MeasurementGraph {
         Ok(())
     }
 
-    /// Insert a distribution's measurement scores into graph.
+    /// Insert measurement scores into graph.
     fn insert_measurement_scores(
         &mut self,
-        distribution: NamedOrBlankNodeRef,
+        node: NamedOrBlankNodeRef,
         metrics: &Vec<MetricScore>,
     ) -> Result<(), MqaError> {
         for MetricScore(metric, score) in metrics {
@@ -158,7 +155,7 @@ impl MeasurementGraph {
                 .as_str(),
             )?;
 
-            let measurement = self.get_or_insert_measurement(distribution, metric.as_ref())?;
+            let measurement = self.get_or_insert_measurement(node, metric.as_ref())?;
 
             let score =
                 Literal::new_typed_literal(format! {"{}", score.unwrap_or_default()}, xsd::INTEGER);
