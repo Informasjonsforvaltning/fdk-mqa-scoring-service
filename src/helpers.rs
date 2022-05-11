@@ -28,11 +28,11 @@ pub fn load_files(fnames: Vec<&str>) -> Result<Vec<String>, MqaError> {
 }
 
 // Parses list of turtle graph strings into a single store.
-pub fn parse_graphs(graphs: Vec<String>) -> Result<Store, MqaError> {
+pub fn parse_graphs<G: ToString>(graphs: Vec<G>) -> Result<Store, MqaError> {
     let store = oxigraph::store::Store::new()?;
     for graph in graphs {
         store.load_graph(
-            graph.as_ref(),
+            graph.to_string().as_ref(),
             GraphFormat::Turtle,
             GraphNameRef::DefaultGraph,
             None,

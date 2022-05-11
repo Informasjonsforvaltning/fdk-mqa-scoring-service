@@ -181,7 +181,7 @@ mod tests {
     use super::*;
     use crate::test::{mqa_node, node, MEASUREMENT_GRAPH};
 
-    fn measurement_graph() -> MeasurementGraph {
+    pub fn measurement_graph() -> MeasurementGraph {
         MeasurementGraph::parse(MEASUREMENT_GRAPH).unwrap()
     }
 

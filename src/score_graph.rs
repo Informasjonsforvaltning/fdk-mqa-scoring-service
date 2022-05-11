@@ -6,7 +6,7 @@ use crate::{
 };
 use oxigraph::model::{vocab::rdf, NamedNode, NamedNodeRef, Term};
 
-pub struct ScoreGraph(oxigraph::store::Store);
+pub struct ScoreGraph(pub oxigraph::store::Store);
 pub type Dimension = (NamedNode, Vec<Metric>);
 pub type Metric = (NamedNode, u64);
 
@@ -78,12 +78,12 @@ impl ScoreGraph {
 }
 
 #[cfg(test)]
-pub mod tests {
+mod tests {
     use super::*;
     use crate::test::{mqa_node, METRIC_GRAPH, SCORE_GRAPH};
 
-    pub fn score_graph() -> ScoreGraph {
-        ScoreGraph(parse_graphs(vec![METRIC_GRAPH.to_string(), SCORE_GRAPH.to_string()]).unwrap())
+    fn score_graph() -> ScoreGraph {
+        ScoreGraph(parse_graphs(vec![METRIC_GRAPH, SCORE_GRAPH]).unwrap())
     }
 
     #[test]

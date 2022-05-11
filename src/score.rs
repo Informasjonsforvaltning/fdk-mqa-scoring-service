@@ -141,12 +141,18 @@ fn node_score(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::test::{mqa_node, node, MEASUREMENT_GRAPH};
+    use crate::{
+        helpers::parse_graphs,
+        score_graph::ScoreGraph,
+        test::{mqa_node, node, MEASUREMENT_GRAPH, METRIC_GRAPH, SCORE_GRAPH},
+    };
 
     #[test]
-    fn test_score_measurements() {
-        let measurement_graph = MeasurementGraph::parse(MEASUREMENT_GRAPH.to_string()).unwrap();
-        let metric_scores = crate::score_graph::tests::score_graph().scores().unwrap();
+    fn score_measurements() {
+        let measurement_graph = MeasurementGraph::parse(MEASUREMENT_GRAPH).unwrap();
+        let metric_scores = ScoreGraph(parse_graphs(vec![METRIC_GRAPH, SCORE_GRAPH]).unwrap())
+            .scores()
+            .unwrap();
         let (dataset_score, distribution_scores) =
             calculate_score(&measurement_graph, &metric_scores).unwrap();
 
@@ -157,13 +163,13 @@ mod tests {
                 vec![
                     DimensionScore(
                         mqa_node("interoperability"),
-                        vec![MetricScore(mqa_node("formatAvailability"), None)],
+                        vec![MetricScore(mqa_node("formatAvailability"), Some(0))],
                     ),
                     DimensionScore(
                         mqa_node("accessibility"),
                         vec![
                             MetricScore(mqa_node("downloadUrlAvailability"), Some(20)),
-                            MetricScore(mqa_node("accessUrlStatusCode"), None),
+                            MetricScore(mqa_node("accessUrlStatusCode"), Some(50)),
                         ],
                     ),
                 ],
