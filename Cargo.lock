@@ -246,6 +246,7 @@ name = "fdk-mqa-property-checker"
 version = "0.1.0"
 dependencies = [
  "oxigraph",
+ "rand",
  "regex",
  "thiserror",
 ]

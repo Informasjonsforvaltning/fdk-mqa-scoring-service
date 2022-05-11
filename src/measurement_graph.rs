@@ -5,12 +5,16 @@ use crate::{
     },
     measurement_value::MeasurementValue,
     score::{DimensionScore, DistributionScore, MetricScore},
-    vocab::{dcat, dcat_mqa, dqv},
+    vocab::{dcat, dcat_mqa, dqv, rdf_syntax},
 };
 use oxigraph::{
     io::GraphFormat,
-    model::{vocab::xsd, GraphNameRef, Literal, NamedNode, NamedOrBlankNode, Quad, Term},
+    model::{
+        vocab::xsd, BlankNode, BlankNodeRef, GraphNameRef, Literal, NamedNode, NamedNodeRef,
+        NamedOrBlankNode, NamedOrBlankNodeRef, Quad, Term,
+    },
 };
+use rand::Rng;
 use regex::Regex;
 use std::{collections::HashMap, io::Cursor};
 
@@ -101,8 +105,8 @@ impl MeasurementGraph {
     ) -> Result<(), MqaError> {
         for DistributionScore(distribution, dimensions) in distributions {
             for DimensionScore(dimension, metrics) in dimensions {
-                self.insert_dimension_score(distribution, dimension, metrics)?;
-                self.insert_measurement_scores(distribution, metrics)?;
+                self.insert_dimension_score(distribution.as_ref(), dimension.as_ref(), metrics)?;
+                self.insert_measurement_scores(distribution.as_ref(), metrics)?;
             }
         }
         Ok(())
@@ -110,25 +114,27 @@ impl MeasurementGraph {
 
     /// Insert a distribution's dimension score into graph.
     fn insert_dimension_score(
-        &self,
-        distribution: &NamedOrBlankNode,
-        dimension: &NamedNode,
+        &mut self,
+        distribution: NamedOrBlankNodeRef,
+        dimension: NamedNodeRef,
         metrics: &Vec<MetricScore>,
     ) -> Result<(), MqaError> {
+        let metric = NamedNode::new(
+            format!(
+                "{}Scoring",
+                dimension.as_str().replace("<", "").replace(">", "")
+            )
+            .as_str(),
+        )?;
+        let measurement = self.get_or_insert_measurement(distribution, metric.as_ref())?;
         let sum = metrics
             .iter()
             .filter_map(|MetricScore(_, score)| score.clone())
             .sum::<u64>();
 
         let entry = Quad {
-            subject: distribution.clone().into(),
-            predicate: NamedNode::new_unchecked(
-                format!(
-                    "{}Scoring",
-                    dimension.as_str().replace("<", "").replace(">", "")
-                )
-                .as_str(),
-            ),
+            subject: measurement.into(),
+            predicate: dqv::VALUE.into(),
             object: Literal::new_typed_literal(format! {"{}", sum}, xsd::INTEGER).into(),
             graph_name: GraphNameRef::DefaultGraph.into(),
         };
@@ -139,29 +145,96 @@ impl MeasurementGraph {
 
     /// Insert a distribution's measurement scores into graph.
     fn insert_measurement_scores(
-        &self,
-        distribution: &NamedOrBlankNode,
+        &mut self,
+        distribution: NamedOrBlankNodeRef,
         metrics: &Vec<MetricScore>,
     ) -> Result<(), MqaError> {
         for MetricScore(metric, score) in metrics {
-            let score = Literal::new_typed_literal(format! {"{}", score.unwrap_or_default()}, xsd::INTEGER);
-            let q = format!(
-                "
-                    INSERT {{ ?measurement {} {} }}
-                    WHERE {{
-                            ?measurement {} {metric} .
-                            ?measurement {} {distribution} .
-                    }}
-                ",
-                dcat_mqa::SCORING,
-                score,
-                dqv::IS_MEASUREMENT_OF,
-                dqv::COMPUTED_ON,
-            );
-            self.0.update(&q)?;
+            let metric = NamedNode::new(
+                format!(
+                    "{}Scoring",
+                    metric.as_str().replace("<", "").replace(">", "")
+                )
+                .as_str(),
+            )?;
+
+            let measurement = self.get_or_insert_measurement(distribution, metric.as_ref())?;
+
+            let score =
+                Literal::new_typed_literal(format! {"{}", score.unwrap_or_default()}, xsd::INTEGER);
+
+            let entry = Quad {
+                subject: measurement.into(),
+                predicate: dqv::VALUE.into(),
+                object: score.into(),
+                graph_name: GraphNameRef::DefaultGraph.into(),
+            };
+            self.0.insert(&entry)?;
         }
 
         Ok(())
+    }
+
+    /// Retrieves measurement of metric for node.
+    /// If no such measurement exists, one is created.
+    fn get_or_insert_measurement(
+        &mut self,
+        node: NamedOrBlankNodeRef,
+        metric: NamedNodeRef,
+    ) -> Result<NamedOrBlankNode, MqaError> {
+        let q = format!(
+            "
+                SELECT ?measurement
+                WHERE {{
+                    {node} {} ?measurement .
+                    ?measurement {} {metric} .
+                }}
+            ",
+            dqv::HAS_QUALITY_MEASUREMENT,
+            dqv::IS_MEASUREMENT_OF,
+        );
+        let result = execute_query(&self.0, &q)?.into_iter().next();
+        match result {
+            Some(qs) => match qs.values().first() {
+                Some(Some(Term::NamedNode(node))) => Ok(NamedOrBlankNode::NamedNode(node.clone())),
+                Some(Some(Term::BlankNode(node))) => Ok(NamedOrBlankNode::BlankNode(node.clone())),
+                Some(Some(term)) => {
+                    Err(format!("unable to get measurement, found: '{}'", term).into())
+                }
+                _ => Err("unable to get measurement".into()),
+            },
+            _ => self.insert_measurement(node, metric),
+        }
+    }
+
+    /// Inserts measurement of metric for node.
+    fn insert_measurement(
+        &mut self,
+        node: NamedOrBlankNodeRef,
+        metric: NamedNodeRef,
+    ) -> Result<NamedOrBlankNode, MqaError> {
+        let mut rng = rand::thread_rng();
+        let id: u64 = rng.gen_range(100_000_000..1_000_000_000);
+        let measurement = NamedNode::new(format!("https://blank.node#{:x}", id))?;
+
+        let q = format!(
+            "
+                INSERT DATA {{
+                    {measurement} {} {} ;
+                                  {} {metric} ;
+                                  {} {node} .
+                    {node} {} {measurement} .
+                }}
+            ",
+            rdf_syntax::TYPE,
+            dqv::QUALITY_MEASUREMENT_CLASS,
+            dqv::IS_MEASUREMENT_OF,
+            dqv::COMPUTED_ON,
+            dqv::HAS_QUALITY_MEASUREMENT,
+        );
+        self.0.update(&q)?;
+
+        Ok(NamedOrBlankNode::NamedNode(measurement))
     }
 
     /// Dump graph to string.

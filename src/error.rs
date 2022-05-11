@@ -1,4 +1,5 @@
 use oxigraph::{
+    model::IriParseError,
     sparql::{EvaluationError, QueryError},
     store::{LoaderError, SerializerError, StorageError},
 };
@@ -12,6 +13,8 @@ pub enum MqaError {
     StorageError(#[from] StorageError),
     #[error(transparent)]
     QueryError(#[from] QueryError),
+    #[error(transparent)]
+    IriParseError(#[from] IriParseError),
     #[error(transparent)]
     EvaluationError(#[from] EvaluationError),
     #[error(transparent)]
