@@ -10,7 +10,6 @@ type N = oxigraph::model::NamedNodeRef<'static>;
 pub mod dcat {
     use super::N;
 
-    pub const DATASET_CLASS: N = n!("http://www.w3.org/ns/dcat#Dataset");
     pub const DISTRIBUTION: N = n!("http://www.w3.org/ns/dcat#distribution");
 }
 
@@ -19,8 +18,6 @@ pub mod dqv {
 
     pub const DIMENSION: N = n!("http://www.w3.org/ns/dqv#Dimension");
     pub const IN_DIMENSION: N = n!("http://www.w3.org/ns/dqv#inDimension");
-    pub const QUALITY_MEASUREMENT_CLASS: N = n!("http://www.w3.org/ns/dqv#QualityMeasurement");
-    pub const QUALITY_ANNOTATION_CLASS: N = n!("http://www.w3.org/ns/dqv#QualityAnnotation");
     pub const HAS_QUALITY_MEASUREMENT: N = n!("http://www.w3.org/ns/dqv#hasQualityMeasurement");
     pub const IS_MEASUREMENT_OF: N = n!("http://www.w3.org/ns/dqv#isMeasurementOf");
     pub const COMPUTED_ON: N = n!("http://www.w3.org/ns/dqv#computedOn");

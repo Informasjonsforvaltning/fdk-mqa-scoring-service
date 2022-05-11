@@ -24,7 +24,7 @@ impl MeasurementGraph {
     }
 
     /// Replaces all blank nodes with named nodes.
-    /// Enables SPARQL query with blank nodes as identifiers.
+    /// Enables SPARQL query with (previously) blank nodes as identifiers.
     fn name_blank_nodes(graph: String) -> Result<String, MqaError> {
         let replaced = Regex::new(r"_:(?P<id>[0-9a-f]+) ")
             .map(|re| re.replace_all(&graph, "<https://blank.node#${id}> "))?;
@@ -144,6 +144,7 @@ impl MeasurementGraph {
         metrics: &Vec<MetricScore>,
     ) -> Result<(), MqaError> {
         for MetricScore(metric, score) in metrics {
+            let score = Literal::new_typed_literal(format! {"{}", score.unwrap_or_default()}, xsd::INTEGER);
             let q = format!(
                 "
                     INSERT {{ ?measurement {} {} }}
@@ -153,7 +154,7 @@ impl MeasurementGraph {
                     }}
                 ",
                 dcat_mqa::SCORING,
-                Literal::new_typed_literal(format! {"{}", score.unwrap_or_default()}, xsd::INTEGER),
+                score,
                 dqv::IS_MEASUREMENT_OF,
                 dqv::COMPUTED_ON,
             );
