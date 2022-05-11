@@ -31,13 +31,13 @@ impl MeasurementGraph {
     /// Enables SPARQL query with (previously) blank nodes as identifiers.
     fn name_blank_nodes(graph: String) -> Result<String, MqaError> {
         let replaced = Regex::new(r"_:(?P<id>[0-9a-f]+) ")
-            .map(|re| re.replace_all(&graph, "<https://blank.node#${id}> "))?;
+            .map(|re| re.replace_all(&graph, "<http://blank.node#${id}> "))?;
         Ok(replaced.to_string())
     }
 
     // Undoes replacement of all blank nodes with named nodes.
     fn undo_name_blank_nodes(graph: String) -> Result<String, MqaError> {
-        let replaced = Regex::new(r"<https://blank.node#(?P<id>[0-9a-f]+)> ")
+        let replaced = Regex::new(r"<http://blank.node#(?P<id>[0-9a-f]+)> ")
             .map(|re| re.replace_all(&graph, "_:${id} "))?;
         Ok(replaced.to_string())
     }
@@ -215,7 +215,7 @@ impl MeasurementGraph {
     ) -> Result<NamedOrBlankNode, MqaError> {
         let mut rng = rand::thread_rng();
         let id: u64 = rng.gen_range(100_000_000..1_000_000_000);
-        let measurement = NamedNode::new(format!("https://blank.node#{:x}", id))?;
+        let measurement = NamedNode::new(format!("http://blank.node#{:x}", id))?;
 
         let q = format!(
             "
