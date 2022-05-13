@@ -10,8 +10,8 @@ use crate::{
 use oxigraph::{
     io::GraphFormat,
     model::{
-        vocab::xsd, BlankNode, BlankNodeRef, GraphNameRef, Literal, NamedNode, NamedNodeRef,
-        NamedOrBlankNode, NamedOrBlankNodeRef, Quad, Term,
+        vocab::xsd, GraphNameRef, Literal, NamedNode, NamedNodeRef, NamedOrBlankNode,
+        NamedOrBlankNodeRef, Quad, Term,
     },
 };
 use rand::Rng;
@@ -98,18 +98,39 @@ impl MeasurementGraph {
     }
 
     /// Inserts score into measurement graph.
-    /// The node in Score may be a dataset node or distribution node.
     pub fn insert_scores(&mut self, scores: &Vec<Score>) -> Result<(), MqaError> {
         for Score(node, dimensions) in scores {
+            self.insert_node_score(node.as_ref(), dimensions)?;
             for DimensionScore(dimension, metrics) in dimensions {
                 self.insert_dimension_score(node.as_ref(), dimension.as_ref(), metrics)?;
-                self.insert_measurement_scores(node.as_ref(), metrics)?;
+                for metric_score in metrics {
+                    self.insert_measurement_score(node.as_ref(), metric_score)?;
+                }
             }
         }
         Ok(())
     }
 
-    /// Insert a dimension score into graph.
+    /// Insert total score of a node into graph.
+    fn insert_node_score(
+        &mut self,
+        node: NamedOrBlankNodeRef,
+        dimensions: &Vec<DimensionScore>,
+    ) -> Result<(), MqaError> {
+        let sum = dimensions
+            .iter()
+            .map(|DimensionScore(_, metrics_scores)| {
+                metrics_scores
+                    .iter()
+                    .filter_map(|MetricScore(_, score)| score.clone())
+                    .sum::<u64>()
+            })
+            .sum::<u64>();
+
+        self.insert_measurement_property(node, dcat_mqa::SCORING, dqv::VALUE, sum)
+    }
+
+    /// Insert dimension score of a node into graph.
     fn insert_dimension_score(
         &mut self,
         node: NamedOrBlankNodeRef,
@@ -123,16 +144,49 @@ impl MeasurementGraph {
             )
             .as_str(),
         )?;
-        let measurement = self.get_or_insert_measurement(node, metric.as_ref())?;
+
         let sum = metrics
             .iter()
             .filter_map(|MetricScore(_, score)| score.clone())
             .sum::<u64>();
 
+        self.insert_measurement_property(node, metric.as_ref(), dqv::VALUE, sum)
+    }
+
+    /// Insert measurement score into graph.
+    fn insert_measurement_score(
+        &mut self,
+        node: NamedOrBlankNodeRef,
+        metric_score: &MetricScore,
+    ) -> Result<(), MqaError> {
+        let MetricScore(metric, score) = metric_score;
+
+        self.insert_measurement_property(
+            node,
+            metric.as_ref(),
+            dcat_mqa::SCORE,
+            score.unwrap_or_default(),
+        )
+    }
+
+    /// Insert the value of a metric measurement into graph.
+    /// Creates the measurement if it does not exist.
+    fn insert_measurement_property(
+        &mut self,
+        node: NamedOrBlankNodeRef,
+        metric: NamedNodeRef,
+        property: NamedNodeRef,
+        value: u64,
+    ) -> Result<(), MqaError> {
+        let measurement = match self.get_measurement(node, metric)? {
+            Some(node) => node,
+            None => self.insert_measurement(node, metric)?,
+        };
+
         let entry = Quad {
             subject: measurement.into(),
-            predicate: dqv::VALUE.into(),
-            object: Literal::new_typed_literal(format! {"{}", sum}, xsd::INTEGER).into(),
+            predicate: property.into(),
+            object: Literal::new_typed_literal(format! {"{}", value}, xsd::INTEGER).into(),
             graph_name: GraphNameRef::DefaultGraph.into(),
         };
 
@@ -140,45 +194,12 @@ impl MeasurementGraph {
         Ok(())
     }
 
-    /// Insert measurement scores into graph.
-    fn insert_measurement_scores(
-        &mut self,
-        node: NamedOrBlankNodeRef,
-        metrics: &Vec<MetricScore>,
-    ) -> Result<(), MqaError> {
-        for MetricScore(metric, score) in metrics {
-            let metric = NamedNode::new(
-                format!(
-                    "{}Scoring",
-                    metric.as_str().replace("<", "").replace(">", "")
-                )
-                .as_str(),
-            )?;
-
-            let measurement = self.get_or_insert_measurement(node, metric.as_ref())?;
-
-            let score =
-                Literal::new_typed_literal(format! {"{}", score.unwrap_or_default()}, xsd::INTEGER);
-
-            let entry = Quad {
-                subject: measurement.into(),
-                predicate: dqv::VALUE.into(),
-                object: score.into(),
-                graph_name: GraphNameRef::DefaultGraph.into(),
-            };
-            self.0.insert(&entry)?;
-        }
-
-        Ok(())
-    }
-
     /// Retrieves measurement of metric for node.
-    /// If no such measurement exists, one is created.
-    fn get_or_insert_measurement(
+    fn get_measurement(
         &mut self,
         node: NamedOrBlankNodeRef,
         metric: NamedNodeRef,
-    ) -> Result<NamedOrBlankNode, MqaError> {
+    ) -> Result<Option<NamedOrBlankNode>, MqaError> {
         let q = format!(
             "
                 SELECT ?measurement
@@ -193,14 +214,18 @@ impl MeasurementGraph {
         let result = execute_query(&self.0, &q)?.into_iter().next();
         match result {
             Some(qs) => match qs.values().first() {
-                Some(Some(Term::NamedNode(node))) => Ok(NamedOrBlankNode::NamedNode(node.clone())),
-                Some(Some(Term::BlankNode(node))) => Ok(NamedOrBlankNode::BlankNode(node.clone())),
+                Some(Some(Term::NamedNode(node))) => {
+                    Ok(Some(NamedOrBlankNode::NamedNode(node.clone())))
+                }
+                Some(Some(Term::BlankNode(node))) => {
+                    Ok(Some(NamedOrBlankNode::BlankNode(node.clone())))
+                }
                 Some(Some(term)) => {
                     Err(format!("unable to get measurement, found: '{}'", term).into())
                 }
                 _ => Err("unable to get measurement".into()),
             },
-            _ => self.insert_measurement(node, metric),
+            _ => Ok(None),
         }
     }
 

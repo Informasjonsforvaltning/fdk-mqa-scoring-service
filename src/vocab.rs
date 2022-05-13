@@ -30,6 +30,8 @@ pub mod dcat_mqa {
     use super::N;
 
     pub const TRUE_SCORE: N = n!("https://data.norge.no/vocabulary/dcatno-mqa#trueScore");
+    pub const SCORE: N = n!("https://data.norge.no/vocabulary/dcatno-mqa#score");
+    pub const SCORING: N = n!("https://data.norge.no/vocabulary/dcatno-mqa#scoring");
 }
 
 pub mod rdf_syntax {
