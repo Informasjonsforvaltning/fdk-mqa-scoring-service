@@ -31,18 +31,18 @@ fn calculate_score(
     let graph_measurements = measurement_graph.quality_measurements()?;
 
     let dataset = measurement_graph.dataset()?;
-    let dataset_score = node_score(scores, &graph_measurements, dataset.as_ref());
+    let dataset_score = node_score(scores, &graph_measurements, dataset.as_ref())?;
 
     let distributions = measurement_graph.distributions()?;
     let distribution_scores: Vec<Score> = distributions
         .into_iter()
         .map(|distribution| {
-            Score(
+            Ok(Score(
                 distribution.clone(),
-                node_score(scores, &graph_measurements, distribution.as_ref()),
-            )
+                node_score(scores, &graph_measurements, distribution.as_ref())?,
+            ))
         })
-        .collect();
+        .collect::<Result<_, MqaError>>()?;
 
     let dataset_merged_distribution_scores: Vec<Score> = distribution_scores
         .iter()
@@ -107,30 +107,30 @@ pub fn best_distribution(distribution_scores: Vec<Score>) -> Option<Score> {
         .map(|best| best.clone())
 }
 
-/// Calculates score for all metrics in all dimensions, for a distribution or dataset resource.
+/// Calculates score for all metrics in all dimensions, for a distribution or dataset node.
 fn node_score(
     dimension_scores: &Vec<crate::score_graph::Dimension>,
     graph_measurements: &HashMap<(NamedOrBlankNode, NamedNode), MeasurementValue>,
-    resource: NamedOrBlankNodeRef,
-) -> Vec<DimensionScore> {
+    node: NamedOrBlankNodeRef,
+) -> Result<Vec<DimensionScore>, MqaError> {
     dimension_scores
         .iter()
         .map(|(dimension, metrics_scores)| {
-            DimensionScore(
+            Ok(DimensionScore(
                 dimension.clone(),
                 metrics_scores
                     .iter()
-                    .map(|(metric, score)| {
-                        match graph_measurements.get(&(resource.into(), metric.clone())) {
-                            Some(val) => MetricScore(
-                                metric.clone(),
-                                Some(if val.acceptable() { score.clone() } else { 0 }),
-                            ),
-                            None => MetricScore(metric.clone(), None),
-                        }
+                    .map(|metric| {
+                        Ok(MetricScore(
+                            metric.0.clone(),
+                            match graph_measurements.get(&(node.into(), metric.0.clone())) {
+                                Some(val) => Some(metric.score(val)?),
+                                None => None,
+                            },
+                        ))
                     })
-                    .collect(),
-            )
+                    .collect::<Result<_, MqaError>>()?,
+            ))
         })
         .collect()
 }

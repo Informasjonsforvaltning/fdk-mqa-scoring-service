@@ -29,14 +29,3 @@ impl TryFrom<Literal> for MeasurementValue {
         }
     }
 }
-
-impl MeasurementValue {
-    // Whether a measurement value is considered ok and should be given positive score.
-    pub fn acceptable(&self) -> bool {
-        match self {
-            MeasurementValue::Int(code) => 200 <= code.clone() && code.clone() < 300,
-            MeasurementValue::Bool(bool) => bool.clone(),
-            _ => false,
-        }
-    }
-}

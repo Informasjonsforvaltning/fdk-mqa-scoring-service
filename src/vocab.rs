@@ -32,6 +32,10 @@ pub mod dcat_mqa {
     pub const TRUE_SCORE: N = n!("https://data.norge.no/vocabulary/dcatno-mqa#trueScore");
     pub const SCORE: N = n!("https://data.norge.no/vocabulary/dcatno-mqa#score");
     pub const SCORING: N = n!("https://data.norge.no/vocabulary/dcatno-mqa#scoring");
+    pub const ACCESS_URL_STATUS_CODE: N =
+        n!("https://data.norge.no/vocabulary/dcatno-mqa#mqa:accessUrlStatusCode");
+    pub const DOWNLOAD_URL_STATUS_CODE: N =
+        n!("https://data.norge.no/vocabulary/dcatno-mqa#mqa:downloadUrlStatusCode");
 }
 
 pub mod rdf_syntax {
