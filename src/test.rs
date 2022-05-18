@@ -1,6 +1,7 @@
 use oxigraph::model::{NamedNode, NamedOrBlankNode};
 
 pub const MEASUREMENT_GRAPH: &str = r#"
+    <https://dataset.foo> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/ns/dcat#Dataset> .
     <https://dataset.foo> <http://www.w3.org/ns/dcat#distribution> <https://distribution.a>  .
     <https://dataset.foo> <http://www.w3.org/ns/dcat#distribution> <https://distribution.b>  .
     <https://dataset.foo> <http://www.w3.org/ns/dqv#hasQualityMeasurement> _:a .

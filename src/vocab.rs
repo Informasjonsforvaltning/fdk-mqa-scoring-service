@@ -10,6 +10,7 @@ type N = oxigraph::model::NamedNodeRef<'static>;
 pub mod dcat {
     use super::N;
 
+    pub const DATASET: N = n!("http://www.w3.org/ns/dcat#Dataset");
     pub const DISTRIBUTION: N = n!("http://www.w3.org/ns/dcat#distribution");
 }
 

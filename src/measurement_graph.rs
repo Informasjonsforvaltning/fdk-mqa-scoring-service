@@ -45,7 +45,12 @@ impl MeasurementGraph {
     /// Retrieves all named or blank dataset nodes.
     pub fn dataset(&self) -> Result<NamedOrBlankNode, MqaError> {
         self.0
-            .quads_for_pattern(None, Some(dcat::DISTRIBUTION.into()), None, None)
+            .quads_for_pattern(
+                None,
+                Some(rdf_syntax::TYPE),
+                Some(dcat::DATASET.into()),
+                None,
+            )
             .map(named_or_blank_quad_subject)
             .next()
             .unwrap_or(Err(MqaError::from("measurement graph has no datasets")))
