@@ -142,14 +142,7 @@ impl MeasurementGraph {
         dimension: NamedNodeRef,
         metrics: &Vec<MetricScore>,
     ) -> Result<(), MqaError> {
-        let metric = NamedNode::new(
-            format!(
-                "{}Scoring",
-                dimension.as_str().replace("<", "").replace(">", "")
-            )
-            .as_str(),
-        )?;
-
+        let metric = NamedNode::new(format!("{}Scoring", dimension.as_str()).as_str())?;
         let sum = metrics
             .iter()
             .filter_map(|MetricScore(_, score)| score.clone())
