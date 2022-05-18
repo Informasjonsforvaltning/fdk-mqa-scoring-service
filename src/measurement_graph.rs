@@ -1,5 +1,6 @@
 use crate::{
     error::MqaError,
+    graph::{name_blank_nodes, undo_name_blank_nodes},
     helpers::{
         execute_query, named_or_blank_quad_object, named_or_blank_quad_subject, parse_graphs,
     },
@@ -15,7 +16,6 @@ use oxigraph::{
     },
 };
 use rand::Rng;
-use regex::Regex;
 use std::{collections::HashMap, io::Cursor};
 
 pub struct MeasurementGraph(oxigraph::store::Store);
@@ -23,23 +23,8 @@ pub struct MeasurementGraph(oxigraph::store::Store);
 impl MeasurementGraph {
     /// Loads graph from string.
     pub fn parse<G: ToString>(graph: G) -> Result<Self, MqaError> {
-        let graph = Self::name_blank_nodes(graph.to_string())?;
+        let graph = name_blank_nodes(graph.to_string())?;
         parse_graphs(vec![graph]).map(|store| Self(store))
-    }
-
-    /// Replaces all blank nodes with named nodes.
-    /// Enables SPARQL query with (previously) blank nodes as identifiers.
-    fn name_blank_nodes(graph: String) -> Result<String, MqaError> {
-        let replaced = Regex::new(r"_:(?P<id>[0-9a-f]+) ")
-            .map(|re| re.replace_all(&graph, "<http://blank.node#${id}> "))?;
-        Ok(replaced.to_string())
-    }
-
-    // Undoes replacement of all blank nodes with named nodes.
-    fn undo_name_blank_nodes(graph: String) -> Result<String, MqaError> {
-        let replaced = Regex::new(r"<http://blank.node#(?P<id>[0-9a-f]+)> ")
-            .map(|re| re.replace_all(&graph, "_:${id} "))?;
-        Ok(replaced.to_string())
     }
 
     /// Retrieves all named or blank dataset nodes.
@@ -264,7 +249,7 @@ impl MeasurementGraph {
             .dump_graph(&mut buff, GraphFormat::Turtle, GraphNameRef::DefaultGraph)?;
 
         match String::from_utf8(buff.into_inner()) {
-            Ok(str) => MeasurementGraph::undo_name_blank_nodes(str),
+            Ok(str) => undo_name_blank_nodes(str),
             Err(e) => Err(e.to_string().into()),
         }
     }
