@@ -242,7 +242,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "fdk-mqa-property-checker"
+name = "fdk-mqa-scoring-service"
 version = "0.1.0"
 dependencies = [
  "oxigraph",
