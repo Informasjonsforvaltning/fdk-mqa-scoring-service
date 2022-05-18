@@ -54,7 +54,7 @@ fn calculate_score(
         })
         .collect();
 
-    let dataset_score = best_distribution(dataset_merged_distribution_scores)
+    let dataset_score = best_score(dataset_merged_distribution_scores)
         .map(|Score(_, score)| score)
         .unwrap_or(dataset_score);
 
@@ -63,10 +63,7 @@ fn calculate_score(
 
 // Merges two distribution scores by taking the max value of each metric.
 // NOTE: both inputs MUST be of same size have equal dimension/metric order.
-fn merge_scores(
-    score: Vec<DimensionScore>,
-    other: &Vec<DimensionScore>,
-) -> Vec<DimensionScore> {
+fn merge_scores(score: Vec<DimensionScore>, other: &Vec<DimensionScore>) -> Vec<DimensionScore> {
     score
         .into_iter()
         .zip(other)
@@ -90,8 +87,8 @@ fn merge_scores(
 }
 
 // Find best scoring distribution.
-pub fn best_distribution(distribution_scores: Vec<Score>) -> Option<Score> {
-    distribution_scores
+pub fn best_score(scores: Vec<Score>) -> Option<Score> {
+    scores
         .iter()
         .max_by_key::<u64, _>(|Score(_, dimensions)| {
             dimensions
@@ -206,6 +203,6 @@ mod tests {
             ],
         );
         assert_eq!(distribution_scores, vec![b.clone(), a.clone()]);
-        assert_eq!(best_distribution(distribution_scores), Some(a));
+        assert_eq!(best_score(distribution_scores), Some(a));
     }
 }
