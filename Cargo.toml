@@ -1,5 +1,5 @@
 [package]
-name = "fdk-mqa-property-checker"
+name = "fdk-mqa-scoring-service"
 version = "0.1.0"
 edition = "2021"
 authors = ["Amund Tenstad <digdir@amund.io>"]
