@@ -49,7 +49,7 @@ fn calculate_score(
         .map(|Score(distribution, score)| {
             Score(
                 distribution.clone(),
-                merge_distribution_scores(score.clone(), &dataset_score),
+                merge_scores(score.clone(), &dataset_score),
             )
         })
         .collect();
@@ -63,7 +63,7 @@ fn calculate_score(
 
 // Merges two distribution scores by taking the max value of each metric.
 // NOTE: both inputs MUST be of same size have equal dimension/metric order.
-fn merge_distribution_scores(
+fn merge_scores(
     score: Vec<DimensionScore>,
     other: &Vec<DimensionScore>,
 ) -> Vec<DimensionScore> {
