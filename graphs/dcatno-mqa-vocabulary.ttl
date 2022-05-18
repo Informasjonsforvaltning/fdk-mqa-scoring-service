@@ -311,6 +311,9 @@ dcatno-mqa:trueScore
 dcatno-mqa:falseScore
     a                       rdfs:Property .
 
+dcatno-mqa:score
+    a                       rdfs:Property .
+
 dcatno-mqa:scoring
     a                       dqv:Metric ;
     skos:definition         "It is calculated a score from the measurements results based on the corresponding score values."@en ;

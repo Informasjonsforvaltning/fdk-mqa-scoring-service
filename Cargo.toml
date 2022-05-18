@@ -1,0 +1,11 @@
+[package]
+name = "fdk-mqa-scoring-service"
+version = "0.1.0"
+edition = "2021"
+authors = ["Amund Tenstad <digdir@amund.io>"]
+
+[dependencies]
+oxigraph = "0.3.1"
+regex = "1.5"
+thiserror = "1.0"
+rand = "0.8.5"
