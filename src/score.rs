@@ -11,20 +11,8 @@ pub struct DimensionScore(pub NamedNode, pub Vec<MetricScore>);
 #[derive(Clone, Debug, PartialEq)]
 pub struct MetricScore(pub NamedNode, pub Option<u64>);
 
-/// Parses graph and calculates score for all metrics in all dimensions, for all distributions.
-pub fn parse_graph_and_calculate_score(
-    graph: String,
-    scores: &Vec<crate::score_graph::Dimension>,
-) -> Result<String, MqaError> {
-    let mut measurement_graph = MeasurementGraph::parse(graph)?;
-    let (dataset_score, distribution_scores) = calculate_score(&measurement_graph, scores)?;
-    measurement_graph.insert_scores(&vec![dataset_score])?;
-    measurement_graph.insert_scores(&distribution_scores)?;
-    measurement_graph.to_string()
-}
-
 /// Calculates score for all metrics in all dimensions, for all distributions.
-fn calculate_score(
+pub fn calculate_score(
     measurement_graph: &MeasurementGraph,
     scores: &Vec<crate::score_graph::Dimension>,
 ) -> Result<(Score, Vec<Score>), MqaError> {
@@ -143,7 +131,8 @@ mod tests {
 
     #[test]
     fn score_measurements() {
-        let measurement_graph = MeasurementGraph::parse(MEASUREMENT_GRAPH).unwrap();
+        let mut measurement_graph = MeasurementGraph::new().unwrap();
+        measurement_graph.load(MEASUREMENT_GRAPH).unwrap();
         let metric_scores = ScoreGraph(parse_graphs(vec![METRIC_GRAPH, SCORE_GRAPH]).unwrap())
             .scores()
             .unwrap();

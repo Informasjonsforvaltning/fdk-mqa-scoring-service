@@ -5,6 +5,8 @@ use oxigraph::{
 };
 use thiserror::Error;
 
+use crate::database;
+
 #[derive(Error, Debug)]
 pub enum MqaError {
     #[error(transparent)]
@@ -25,6 +27,10 @@ pub enum MqaError {
     KafkaError(#[from] rdkafka::error::KafkaError),
     #[error(transparent)]
     SRCError(#[from] schema_registry_converter::error::SRCError),
+    #[error(transparent)]
+    DatabaseError(#[from] database::DatabaseError),
+    #[error(transparent)]
+    PoolError(#[from] deadpool_postgres::PoolError),
     #[error("{0}")]
     String(String),
 }

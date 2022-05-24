@@ -1,10 +1,11 @@
 use std::{env, time::Duration};
 
+use database::connection_pool;
 use futures::stream::{FuturesUnordered, StreamExt};
 use schema_registry_converter::async_impl::schema_registry::SrSettings;
 
+mod database;
 mod error;
-mod graph;
 mod helpers;
 mod kafka;
 mod measurement_graph;
@@ -26,6 +27,8 @@ async fn main() {
         .build()
         .unwrap();
 
+    let pool = connection_pool().unwrap();
+
     (0..4)
         .map(|_| {
             tokio::spawn(kafka::run_async_processor(
@@ -33,6 +36,7 @@ async fn main() {
                 "fdk-mqa-scoring-service".to_string(),
                 "mqa-events".to_string(),
                 sr_settings.clone(),
+                pool.clone(),
             ))
         })
         .collect::<FuturesUnordered<_>>()
