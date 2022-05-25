@@ -21,6 +21,10 @@ pub enum MqaError {
     SerializerError(#[from] SerializerError),
     #[error(transparent)]
     RegexError(#[from] regex::Error),
+    #[error(transparent)]
+    KafkaError(#[from] rdkafka::error::KafkaError),
+    #[error(transparent)]
+    SRCError(#[from] schema_registry_converter::error::SRCError),
     #[error("{0}")]
     String(String),
 }
