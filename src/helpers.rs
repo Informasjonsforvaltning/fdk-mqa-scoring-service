@@ -1,21 +1,20 @@
-use crate::error::MqaError;
+use std::fs;
+
 use oxigraph::{
     io::GraphFormat,
-    model::{GraphNameRef, NamedNode, NamedOrBlankNode, Quad, Subject, Term},
+    model::{GraphNameRef, NamedNode, Quad, Subject},
     sparql::{QueryResults, QuerySolution},
     store::{StorageError, Store},
 };
-use std::fs;
 
-// Executes SPARQL query on store.
+use crate::error::MqaError;
+
+// Executes SPARQL SELECT query on store.
 pub fn execute_query(store: &Store, q: &str) -> Result<Vec<QuerySolution>, MqaError> {
     match store.query(q) {
-        Ok(QueryResults::Solutions(solutions)) => match solutions.collect() {
-            Ok(vec) => Ok(vec),
-            Err(e) => Err(e.into()),
-        },
+        Ok(QueryResults::Solutions(solutions)) => Ok(solutions.collect::<Result<_, _>>()?),
+        Ok(_) => Err("unable to execute query, not a SELECT query".into()),
         Err(e) => Err(e.into()),
-        _ => Err("unable to execute query".into()),
     }
 }
 
@@ -23,7 +22,7 @@ pub fn execute_query(store: &Store, q: &str) -> Result<Vec<QuerySolution>, MqaEr
 pub fn load_files(fnames: Vec<&str>) -> Result<Vec<String>, MqaError> {
     fnames
         .into_iter()
-        .map(|fname| fs::read_to_string(fname).or_else(|e| Err(StorageError::Io(e).into())))
+        .map(|fname| fs::read_to_string(fname).map_err(|e| StorageError::Io(e).into()))
         .collect()
 }
 
@@ -46,27 +45,5 @@ pub fn named_quad_subject(result: Result<Quad, StorageError>) -> Result<NamedNod
     match result?.subject {
         Subject::NamedNode(node) => Ok(node),
         _ => Err("unable to get named quad object".into()),
-    }
-}
-
-// Attemts to extract quad subject as named or blank node.
-pub fn named_or_blank_quad_subject(
-    result: Result<Quad, StorageError>,
-) -> Result<NamedOrBlankNode, MqaError> {
-    match result?.subject {
-        Subject::NamedNode(node) => Ok(NamedOrBlankNode::NamedNode(node)),
-        Subject::BlankNode(node) => Ok(NamedOrBlankNode::BlankNode(node)),
-        _ => Err("unable to get named or blank quad subject".into()),
-    }
-}
-
-// Attemts to extract quad object as named or blank node.
-pub fn named_or_blank_quad_object(
-    result: Result<Quad, StorageError>,
-) -> Result<NamedOrBlankNode, MqaError> {
-    match result?.object {
-        Term::NamedNode(node) => Ok(NamedOrBlankNode::NamedNode(node)),
-        Term::BlankNode(node) => Ok(NamedOrBlankNode::BlankNode(node)),
-        _ => Err("unable to get named or blank quad object".into()),
     }
 }
