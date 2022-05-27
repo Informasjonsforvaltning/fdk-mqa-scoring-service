@@ -8,12 +8,11 @@ use crate::{
 use oxigraph::{
     io::GraphFormat,
     model::{
-        vocab::xsd, GraphNameRef, Literal, NamedNode, NamedNodeRef, NamedOrBlankNode,
+        vocab::xsd, BlankNode, GraphNameRef, Literal, NamedNode, NamedNodeRef, NamedOrBlankNode,
         NamedOrBlankNodeRef, Quad, Term,
     },
     store::Store,
 };
-use rand::Rng;
 use std::{collections::HashMap, io::Cursor};
 
 pub struct MeasurementGraph(oxigraph::store::Store);
@@ -227,10 +226,7 @@ impl MeasurementGraph {
         node: NamedOrBlankNodeRef,
         metric: NamedNodeRef,
     ) -> Result<NamedOrBlankNode, MqaError> {
-        let mut rng = rand::thread_rng();
-        let id: u64 = rng.gen_range(100_000_000..1_000_000_000);
-        let measurement = NamedNode::new(format!("http://blank.node#{:x}", id))?;
-
+        let measurement = BlankNode::default();
         let q = format!(
             "
                 INSERT DATA {{
@@ -248,7 +244,7 @@ impl MeasurementGraph {
         );
         self.0.update(&q)?;
 
-        Ok(NamedOrBlankNode::NamedNode(measurement))
+        Ok(NamedOrBlankNode::BlankNode(measurement))
     }
 
     /// Dump graph to string.
