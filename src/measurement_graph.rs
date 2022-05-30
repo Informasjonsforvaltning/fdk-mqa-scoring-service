@@ -1,9 +1,6 @@
 use crate::{
     error::MqaError,
-    graph::{name_blank_nodes, undo_name_blank_nodes},
-    helpers::{
-        execute_query, named_or_blank_quad_object, named_or_blank_quad_subject, parse_graphs,
-    },
+    helpers::{execute_query, named_or_blank_quad_object, named_or_blank_quad_subject},
     measurement_value::MeasurementValue,
     score::{DimensionScore, MetricScore, Score},
     vocab::{dcat, dcat_mqa, dqv, rdf_syntax},
@@ -11,20 +8,31 @@ use crate::{
 use oxigraph::{
     io::GraphFormat,
     model::{
-        vocab::xsd, GraphNameRef, Literal, NamedNode, NamedNodeRef, NamedOrBlankNode,
+        vocab::xsd, BlankNode, GraphNameRef, Literal, NamedNode, NamedNodeRef, NamedOrBlankNode,
         NamedOrBlankNodeRef, Quad, Term,
     },
+    store::Store,
 };
-use rand::Rng;
 use std::{collections::HashMap, io::Cursor};
 
 pub struct MeasurementGraph(oxigraph::store::Store);
 
 impl MeasurementGraph {
+    /// Creates new measurement graph.
+    pub fn new() -> Result<Self, MqaError> {
+        let store = Store::new()?;
+        Ok(Self(store))
+    }
+
     /// Loads graph from string.
-    pub fn parse<G: ToString>(graph: G) -> Result<Self, MqaError> {
-        let graph = name_blank_nodes(graph.to_string())?;
-        parse_graphs(vec![graph]).map(|store| Self(store))
+    pub fn load<G: ToString>(&mut self, graph: G) -> Result<(), MqaError> {
+        self.0.load_graph(
+            graph.to_string().as_ref(),
+            GraphFormat::Turtle,
+            GraphNameRef::DefaultGraph,
+            None,
+        )?;
+        Ok(())
     }
 
     /// Retrieves all named or blank dataset nodes.
@@ -218,10 +226,7 @@ impl MeasurementGraph {
         node: NamedOrBlankNodeRef,
         metric: NamedNodeRef,
     ) -> Result<NamedOrBlankNode, MqaError> {
-        let mut rng = rand::thread_rng();
-        let id: u64 = rng.gen_range(100_000_000..1_000_000_000);
-        let measurement = NamedNode::new(format!("http://blank.node#{:x}", id))?;
-
+        let measurement = BlankNode::default();
         let q = format!(
             "
                 INSERT DATA {{
@@ -239,7 +244,7 @@ impl MeasurementGraph {
         );
         self.0.update(&q)?;
 
-        Ok(NamedOrBlankNode::NamedNode(measurement))
+        Ok(NamedOrBlankNode::BlankNode(measurement))
     }
 
     /// Dump graph to string.
@@ -248,10 +253,7 @@ impl MeasurementGraph {
         self.0
             .dump_graph(&mut buff, GraphFormat::Turtle, GraphNameRef::DefaultGraph)?;
 
-        match String::from_utf8(buff.into_inner()) {
-            Ok(str) => undo_name_blank_nodes(str),
-            Err(e) => Err(e.to_string().into()),
-        }
+        String::from_utf8(buff.into_inner()).map_err(|e| e.to_string().into())
     }
 }
 
@@ -261,7 +263,9 @@ mod tests {
     use crate::test::{mqa_node, node, MEASUREMENT_GRAPH};
 
     pub fn measurement_graph() -> MeasurementGraph {
-        MeasurementGraph::parse(MEASUREMENT_GRAPH).unwrap()
+        let mut graph = MeasurementGraph::new().unwrap();
+        graph.load(MEASUREMENT_GRAPH).unwrap();
+        graph
     }
 
     #[test]
