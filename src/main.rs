@@ -19,8 +19,8 @@ mod vocab;
 #[tokio::main]
 async fn main() {
     let schema_registry =
-        env::var("SCHEMA_REGISTRY_URL").unwrap_or("http://localhost:8081".to_string());
-    let broker = env::var("BROKER_URL").unwrap_or("localhost:9092".to_string());
+        env::var("SCHEMA_REGISTRY").unwrap_or("http://localhost:8081".to_string());
+    let broker = env::var("BROKERS").unwrap_or("localhost:9092".to_string());
 
     let sr_settings = SrSettings::new_builder(schema_registry)
         .set_timeout(Duration::from_secs(5))
