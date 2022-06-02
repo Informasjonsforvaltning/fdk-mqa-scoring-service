@@ -1,11 +1,12 @@
+use oxigraph::model::{NamedNode, NamedNodeRef};
+use std::collections::HashMap;
+
 use crate::{
     error::MqaError, measurement_graph::MeasurementGraph, measurement_value::MeasurementValue,
 };
-use oxigraph::model::{NamedNode, NamedOrBlankNode, NamedOrBlankNodeRef};
-use std::collections::HashMap;
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct Score(pub NamedOrBlankNode, pub Vec<DimensionScore>);
+pub struct Score(pub NamedNode, pub Vec<DimensionScore>);
 #[derive(Clone, Debug, PartialEq)]
 pub struct DimensionScore(pub NamedNode, pub Vec<MetricScore>);
 #[derive(Clone, Debug, PartialEq)]
@@ -95,8 +96,8 @@ pub fn best_score(scores: Vec<Score>) -> Option<Score> {
 /// Calculates score for all metrics in all dimensions, for a distribution or dataset node.
 fn node_score(
     dimension_scores: &Vec<crate::score_graph::Dimension>,
-    graph_measurements: &HashMap<(NamedOrBlankNode, NamedNode), MeasurementValue>,
-    node: NamedOrBlankNodeRef,
+    graph_measurements: &HashMap<(NamedNode, NamedNode), MeasurementValue>,
+    node: NamedNodeRef,
 ) -> Result<Vec<DimensionScore>, MqaError> {
     dimension_scores
         .iter()

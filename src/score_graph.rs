@@ -1,3 +1,5 @@
+use oxigraph::model::{vocab::rdf, NamedNode, NamedNodeRef, Term};
+
 use crate::{
     error::MqaError,
     helpers::execute_query,
@@ -5,7 +7,6 @@ use crate::{
     measurement_value::MeasurementValue,
     vocab::{dcat_mqa, dqv},
 };
-use oxigraph::model::{vocab::rdf, NamedNode, NamedNodeRef, Term};
 
 pub struct ScoreGraph(pub oxigraph::store::Store);
 pub type Dimension = (NamedNode, Vec<ScoreMetric>);
@@ -65,11 +66,11 @@ impl ScoreGraph {
                     _ => Err("unable to read metric from score graph"),
                 }?;
                 let value = match qs.get("value") {
-                    Some(Term::Literal(literal)) => literal.value().parse::<u64>().or_else(|_| {
-                        Err(format!(
+                    Some(Term::Literal(literal)) => literal.value().parse::<u64>().map_err(|_| {
+                        format!(
                             "unable to parse metric score from score graph: '{}'",
                             literal.value()
-                        ))
+                        )
                     }),
                     _ => Err("unable to read metric value from score graph".into()),
                 }?;
@@ -88,17 +89,17 @@ impl ScoreMetric {
         let ok = match self.0.as_ref() {
             ACCESS_URL_STATUS_CODE | DOWNLOAD_URL_STATUS_CODE => match value {
                 Int(code) => Ok(200 <= code.clone() && code.clone() < 300),
-                _ => Err(MqaError::from(format!(
-                    "{} measurement must be of type int",
-                    self.0
-                ))),
+                _ => Err(format!(
+                    "measurement '{}' must be of type int: '{:?}'",
+                    self.0, value
+                )),
             },
             _ => match value {
                 Bool(bool) => Ok(bool.clone()),
-                _ => Err(MqaError::from(format!(
-                    "{} measurement must be of type bool",
-                    self.0
-                ))),
+                _ => Err(format!(
+                    "measurement '{}' must be of type bool: '{:?}'",
+                    self.0, value
+                )),
             },
         }?;
         Ok(if ok { self.1 } else { 0 })
