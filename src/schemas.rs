@@ -1,6 +1,6 @@
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub enum MQAEventType {
     #[serde(rename = "PROPERTIES_CHECKED")]
     PropertiesChecked,
@@ -10,7 +10,7 @@ pub enum MQAEventType {
     DcatComplienceChecked,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct MQAEvent {
     #[serde(rename = "type")]
     pub event_type: MQAEventType,
