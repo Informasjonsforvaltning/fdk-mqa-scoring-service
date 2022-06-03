@@ -130,7 +130,6 @@ async fn handle_event(event: MQAEvent, pool: Pool) -> Result<(), MqaError> {
     }
 
     let (dataset_score, distribution_scores) = calculate_score(&measurement_graph, &metric_scores)?;
-    println!("{:?}", distribution_scores);
     measurement_graph.insert_scores(&vec![dataset_score])?;
     measurement_graph.insert_scores(&distribution_scores)?;
 
