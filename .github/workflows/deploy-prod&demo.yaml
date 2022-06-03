@@ -11,7 +11,7 @@ jobs:
     name: Run tests when merging to main
     uses: Informasjonsforvaltning/workflows/.github/workflows/test-rust.yaml@main
     with:
-      repo: ${{ github.repository }}
+      cargo_args: --lib
     secrets:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -20,8 +20,6 @@ jobs:
     uses: Informasjonsforvaltning/workflows/.github/workflows/build-push.yaml@main
     with:
       app_name: fdk-mqa-scoring-service
-      caller_sha: ${{ github.sha }}
-      repo: ${{ github.repository }}
       environment: prod
     secrets:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -33,9 +31,6 @@ jobs:
     uses: Informasjonsforvaltning/workflows/.github/workflows/deploy.yaml@main
     with:
       app_name: fdk-mqa-scoring-service
-      caller_sha: ${{ github.sha }}
-      repo: ${{ github.repository }}
-      actor: ${{ github.actor }}
       environment: prod
       cluster: digdir-fdk-prod
     secrets:
@@ -49,9 +44,6 @@ jobs:
     uses: Informasjonsforvaltning/workflows/.github/workflows/deploy.yaml@main
     with:
       app_name: fdk-mqa-scoring-service
-      caller_sha: ${{ github.sha }}
-      repo: ${{ github.repository }}
-      actor: ${{ github.actor }}
       environment: demo
       cluster: digdir-fdk-dev
     secrets:

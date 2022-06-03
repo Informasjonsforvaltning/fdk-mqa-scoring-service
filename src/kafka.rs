@@ -1,9 +1,13 @@
-use avro_rs::{from_value, schema::Name};
+use std::env;
+
+use avro_rs::schema::Name;
 use deadpool_postgres::Pool;
 use futures::TryStreamExt;
+use lazy_static::lazy_static;
 use rdkafka::{
     config::RDKafkaLogLevel,
     consumer::{Consumer, StreamConsumer},
+    error::KafkaError,
     message::OwnedMessage,
     ClientConfig, Message,
 };
@@ -23,16 +27,18 @@ use crate::{
     score_graph::ScoreGraph,
 };
 
-pub async fn run_async_processor(
-    brokers: String,
-    group_id: String,
-    input_topic: String,
-    sr_settings: SrSettings,
-    pool: Pool,
-) -> Result<(), MqaError> {
+lazy_static! {
+    pub static ref BROKERS: String = env::var("BROKERS").unwrap_or("localhost:9092".to_string());
+    pub static ref SCHEMA_REGISTRY: String =
+        env::var("SCHEMA_REGISTRY").unwrap_or("http://localhost:8081".to_string());
+    pub static ref INPUT_TOPIC: String =
+        env::var("INPUT_TOPIC").unwrap_or("mqa-events".to_string());
+}
+
+pub fn create_consumer() -> Result<StreamConsumer, KafkaError> {
     let consumer: StreamConsumer = ClientConfig::new()
-        .set("group.id", &group_id)
-        .set("bootstrap.servers", &brokers)
+        .set("group.id", "fdk-mqa-scoring-service")
+        .set("bootstrap.servers", BROKERS.clone())
         .set("enable.partition.eof", "false")
         .set("session.timeout.ms", "6000")
         .set("enable.auto.commit", "true")
@@ -42,17 +48,22 @@ pub async fn run_async_processor(
         .set("debug", "all")
         .set_log_level(RDKafkaLogLevel::Debug)
         .create()?;
+    consumer.subscribe(&[&INPUT_TOPIC])?;
+    Ok(consumer)
+}
 
-    consumer.subscribe(&[&input_topic])?;
+pub async fn run_async_processor(sr_settings: SrSettings, pool: Pool) -> Result<(), MqaError> {
+    let consumer: StreamConsumer = create_consumer()?;
+
     consumer
         .stream()
         .try_for_each(|borrowed_message| {
-            let decoder = AvroDecoder::new(sr_settings.clone());
+            let sr_settings = sr_settings.clone();
             let pool = pool.clone();
             async move {
                 let message = borrowed_message.detach();
                 tokio::spawn(async move {
-                    match handle_message(message, decoder, pool).await {
+                    match handle_message(message, sr_settings, pool).await {
                         Ok(_) => println!("ok"),
                         Err(e) => println!("Error: {:?}", e),
                     };
@@ -79,23 +90,26 @@ async fn parse_event(
                 }),
             value,
         }) if name == "MQAEvent" && namespace == "no.fdk.mqa" => Ok(Some(
-            from_value::<MQAEvent>(&value).map_err(|e| e.to_string())?,
+            avro_rs::from_value::<MQAEvent>(&value).map_err(|e| e.to_string())?,
         )),
         Ok(_) => Ok(None),
         Err(e) => Err(e.into()),
     }
 }
 
-async fn handle_message(
+pub async fn handle_message(
     message: OwnedMessage,
-    decoder: AvroDecoder<'_>,
+    sr_settings: SrSettings,
     pool: Pool,
 ) -> Result<(), MqaError> {
+    let decoder = AvroDecoder::new(sr_settings);
     if let Some(event) = parse_event(message, decoder).await? {
-        handle_event(event, pool).await
-    } else {
-        Ok(())
+        tokio::task::spawn_blocking(|| handle_event(event, pool))
+            .await
+            .map_err(|e| e.to_string())?
+            .await?;
     }
+    Ok(())
 }
 
 async fn handle_event(event: MQAEvent, pool: Pool) -> Result<(), MqaError> {

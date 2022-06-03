@@ -183,7 +183,7 @@ impl MeasurementGraph {
         let entry = Quad {
             subject: measurement.into(),
             predicate: property.into(),
-            object: Literal::new_typed_literal(format! {"{}", value}, xsd::INTEGER).into(),
+            object: Literal::new_typed_literal(format!("{}", value), xsd::INTEGER).into(),
             graph_name: GraphNameRef::DefaultGraph.into(),
         };
 
@@ -233,22 +233,31 @@ impl MeasurementGraph {
         metric: NamedNodeRef,
     ) -> Result<NamedOrBlankNode, MqaError> {
         let measurement = BlankNode::default();
-        let q = format!(
-            "
-                INSERT DATA {{
-                    {measurement} {} {} ;
-                                  {} {metric} ;
-                                  {} {node} .
-                    {node} {} {measurement} .
-                }}
-            ",
-            rdf_syntax::TYPE,
-            dqv::QUALITY_MEASUREMENT_CLASS,
-            dqv::IS_MEASUREMENT_OF,
-            dqv::COMPUTED_ON,
-            dqv::HAS_QUALITY_MEASUREMENT,
-        );
-        self.0.update(&q)?;
+
+        self.0.insert(&Quad {
+            subject: measurement.clone().into(),
+            predicate: rdf_syntax::TYPE.into(),
+            object: dqv::QUALITY_MEASUREMENT_CLASS.into(),
+            graph_name: GraphNameRef::DefaultGraph.into(),
+        })?;
+        self.0.insert(&Quad {
+            subject: measurement.clone().into(),
+            predicate: dqv::IS_MEASUREMENT_OF.into(),
+            object: metric.into(),
+            graph_name: GraphNameRef::DefaultGraph.into(),
+        })?;
+        self.0.insert(&Quad {
+            subject: measurement.clone().into(),
+            predicate: dqv::COMPUTED_ON.into(),
+            object: node.into(),
+            graph_name: GraphNameRef::DefaultGraph.into(),
+        })?;
+        self.0.insert(&Quad {
+            subject: node.into(),
+            predicate: dqv::HAS_QUALITY_MEASUREMENT.into(),
+            object: measurement.clone().into(),
+            graph_name: GraphNameRef::DefaultGraph.into(),
+        })?;
 
         Ok(NamedOrBlankNode::BlankNode(measurement))
     }
