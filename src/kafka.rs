@@ -133,11 +133,11 @@ async fn handle_event(event: MQAEvent, pool: Pool) -> Result<(), MqaError> {
     measurement_graph.insert_scores(&vec![dataset_score])?;
     measurement_graph.insert_scores(&distribution_scores)?;
 
-    let fnames = vec![
-        "graphs/dcatno-mqa-vocabulary.ttl",
-        "graphs/dcatno-mqa-vocabulary-default-score-values.ttl",
-    ];
-    let vocab = load_files(fnames)?.join("\n");
+    let vocab = format!(
+        "{}\n{}",
+        include_str!("../graphs/dcatno-mqa-vocabulary.ttl"),
+        include_str!("../graphs/dcatno-mqa-vocabulary-default-score-values.ttl")
+    );
     let score = measurement_graph.to_string()?;
     store_graph(&client, &fdk_id, score, vocab).await?;
 
