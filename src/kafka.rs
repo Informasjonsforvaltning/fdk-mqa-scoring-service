@@ -15,12 +15,12 @@ use schema_registry_converter::{
     async_impl::{avro::AvroDecoder, schema_registry::SrSettings},
     avro_common::DecodeResult,
 };
+use tracing::{Instrument, Level};
 use uuid::Uuid;
 
 use crate::{
     database::{create_table, get_graph_by_id, store_graph},
     error::MqaError,
-    helpers::load_files,
     measurement_graph::MeasurementGraph,
     schemas::MQAEvent,
     score::calculate_score,
@@ -52,22 +52,46 @@ pub fn create_consumer() -> Result<StreamConsumer, KafkaError> {
     Ok(consumer)
 }
 
-pub async fn run_async_processor(sr_settings: SrSettings, pool: Pool) -> Result<(), MqaError> {
+pub async fn run_async_processor(
+    worker_id: usize,
+    sr_settings: SrSettings,
+    pool: Pool,
+) -> Result<(), MqaError> {
+    tracing::info!(worker_id, "starting worker");
+
     let consumer: StreamConsumer = create_consumer()?;
 
+    tracing::info!(worker_id, "listening for messages");
     consumer
         .stream()
         .try_for_each(|borrowed_message| {
             let sr_settings = sr_settings.clone();
             let pool = pool.clone();
+            let message = borrowed_message.detach();
+
+            let span = tracing::span!(
+                Level::INFO,
+                "received_message",
+                topic = message.topic(),
+                partition = message.partition(),
+                offset = message.offset(),
+                timestamp = message.timestamp().to_millis(),
+            );
+
             async move {
-                let message = borrowed_message.detach();
-                tokio::spawn(async move {
-                    match handle_message(message, sr_settings, pool).await {
-                        Ok(_) => println!("ok"),
-                        Err(e) => println!("Error: {:?}", e),
-                    };
-                });
+                tokio::spawn(
+                    async move {
+                        match handle_message(message, sr_settings, pool).await {
+                            Ok(_) => tracing::info!("message handeled successfully"),
+                            Err(e) => tracing::info!(
+                                error = e.to_string().as_str(),
+                                "failed while handling message"
+                            ),
+                        };
+                    }
+                    .instrument(span),
+                );
+
                 Ok(())
             }
         })
@@ -104,15 +128,29 @@ pub async fn handle_message(
 ) -> Result<(), MqaError> {
     let decoder = AvroDecoder::new(sr_settings);
     if let Some(event) = parse_event(message, decoder).await? {
-        tokio::task::spawn_blocking(|| handle_event(event, pool))
-            .await
-            .map_err(|e| e.to_string())?
-            .await?;
+        let span = tracing::span!(
+            Level::INFO,
+            "parsed_event",
+            fdk_id = event.fdk_id.as_str(),
+            event_type = format!("{:?}", event.event_type).as_str(),
+        );
+
+        tokio::task::spawn_blocking(move || {
+            let _enter = span.enter();
+            handle_event(event, pool)
+        })
+        .await
+        .map_err(|e| e.to_string())?
+        .await?;
+    } else {
+        tracing::info!("skipping event");
     }
     Ok(())
 }
 
 async fn handle_event(event: MQAEvent, pool: Pool) -> Result<(), MqaError> {
+    tracing::info!("handling event");
+
     // TODO: load one per worker and pass metrics_scores to `handle_event`
     let score_graph = ScoreGraph::load()?;
     let metric_scores = score_graph.scores()?;
@@ -139,6 +177,7 @@ async fn handle_event(event: MQAEvent, pool: Pool) -> Result<(), MqaError> {
         include_str!("../graphs/dcatno-mqa-vocabulary-default-score-values.ttl")
     );
     let score = measurement_graph.to_string()?;
+    tracing::info!("writing score to database");
     store_graph(&client, &fdk_id, score, vocab).await?;
 
     Ok(())
