@@ -1,5 +1,5 @@
 use fdk_mqa_scoring_service::{
-    database::{connection_pool, get_graph_by_id},
+    database::{migrate_database, PgPool},
     kafka::INPUT_TOPIC,
     schemas::{MQAEvent, MQAEventType},
 };
@@ -41,6 +41,8 @@ async fn score() {
 }
 
 async fn assert_transformation(input: &str, expected: &str) {
+    migrate_database().unwrap();
+
     let uuid = Uuid::new_v4();
     let input_message = MQAEvent {
         event_type: MQAEventType::PropertiesChecked,
@@ -60,9 +62,9 @@ async fn assert_transformation(input: &str, expected: &str) {
     // Wait for node-namer to process message and assert result is ok
     processor.await.unwrap();
 
-    let pool = connection_pool().unwrap();
-    let client = pool.get().await.unwrap();
-    let graph = get_graph_by_id(&client, uuid).await.unwrap().unwrap();
+    let pool = PgPool::new().unwrap();
+    let mut conn = pool.get().unwrap();
+    let graph = conn.get_score_graph_by_id(uuid).unwrap().unwrap();
 
     assert_eq!(sorted_lines(&graph), sorted_lines(expected));
 }

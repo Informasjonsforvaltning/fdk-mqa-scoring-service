@@ -29,8 +29,6 @@ pub enum MqaError {
     SRCError(#[from] schema_registry_converter::error::SRCError),
     #[error(transparent)]
     DatabaseError(#[from] database::DatabaseError),
-    #[error(transparent)]
-    PoolError(#[from] deadpool_postgres::PoolError),
     #[error("{0}")]
     String(String),
 }

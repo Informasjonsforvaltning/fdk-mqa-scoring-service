@@ -1,7 +1,6 @@
 use std::env;
 
 use avro_rs::schema::Name;
-use deadpool_postgres::Pool;
 use futures::TryStreamExt;
 use lazy_static::lazy_static;
 use rdkafka::{
@@ -18,13 +17,8 @@ use schema_registry_converter::{
 use uuid::Uuid;
 
 use crate::{
-    database::{create_table, get_graph_by_id, store_graph},
-    error::MqaError,
-    helpers::load_files,
-    measurement_graph::MeasurementGraph,
-    schemas::MQAEvent,
-    score::calculate_score,
-    score_graph::ScoreGraph,
+    database::PgPool, error::MqaError, measurement_graph::MeasurementGraph, models::Graph,
+    schemas::MQAEvent, score::calculate_score, score_graph::ScoreGraph,
 };
 
 lazy_static! {
@@ -52,7 +46,7 @@ pub fn create_consumer() -> Result<StreamConsumer, KafkaError> {
     Ok(consumer)
 }
 
-pub async fn run_async_processor(sr_settings: SrSettings, pool: Pool) -> Result<(), MqaError> {
+pub async fn run_async_processor(sr_settings: SrSettings, pool: PgPool) -> Result<(), MqaError> {
     let consumer: StreamConsumer = create_consumer()?;
 
     consumer
@@ -100,7 +94,7 @@ async fn parse_event(
 pub async fn handle_message(
     message: OwnedMessage,
     sr_settings: SrSettings,
-    pool: Pool,
+    pool: PgPool,
 ) -> Result<(), MqaError> {
     let decoder = AvroDecoder::new(sr_settings);
     if let Some(event) = parse_event(message, decoder).await? {
@@ -112,7 +106,7 @@ pub async fn handle_message(
     Ok(())
 }
 
-async fn handle_event(event: MQAEvent, pool: Pool) -> Result<(), MqaError> {
+async fn handle_event(event: MQAEvent, pool: PgPool) -> Result<(), MqaError> {
     // TODO: load one per worker and pass metrics_scores to `handle_event`
     let score_graph = ScoreGraph::load()?;
     let metric_scores = score_graph.scores()?;
@@ -123,9 +117,8 @@ async fn handle_event(event: MQAEvent, pool: Pool) -> Result<(), MqaError> {
     let fdk_id = Uuid::parse_str(event.fdk_id.as_str())
         .map_err(|e| format!("unable to parse FDK ID: {e}"))?;
 
-    let client = pool.get().await?;
-    create_table(&client).await?;
-    if let Some(graph) = get_graph_by_id(&client, fdk_id).await? {
+    let mut conn = pool.get()?;
+    if let Some(graph) = conn.get_score_graph_by_id(fdk_id)? {
         measurement_graph.load(graph)?;
     }
 
@@ -133,13 +126,16 @@ async fn handle_event(event: MQAEvent, pool: Pool) -> Result<(), MqaError> {
     measurement_graph.insert_scores(&vec![dataset_score])?;
     measurement_graph.insert_scores(&distribution_scores)?;
 
-    let vocab = format!(
-        "{}\n{}",
-        include_str!("../graphs/dcatno-mqa-vocabulary.ttl"),
-        include_str!("../graphs/dcatno-mqa-vocabulary-default-score-values.ttl")
-    );
-    let score = measurement_graph.to_string()?;
-    store_graph(&client, &fdk_id, score, vocab).await?;
+    let graph = Graph {
+        fdk_id: fdk_id.to_string(),
+        score: measurement_graph.to_string()?,
+        vocab: format!(
+            "{}\n{}",
+            include_str!("../graphs/dcatno-mqa-vocabulary.ttl"),
+            include_str!("../graphs/dcatno-mqa-vocabulary-default-score-values.ttl")
+        ),
+    };
+    conn.store_graph(graph)?;
 
     Ok(())
 }
