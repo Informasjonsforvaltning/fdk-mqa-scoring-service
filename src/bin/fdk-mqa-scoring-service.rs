@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use fdk_mqa_scoring_service::{
-    database::connection_pool,
+    database::{migrate_database, PgPool},
     kafka::{self, SCHEMA_REGISTRY},
 };
 use futures::stream::{FuturesUnordered, StreamExt};
@@ -21,7 +21,8 @@ async fn main() {
         .build()
         .unwrap();
 
-    let pool = connection_pool().unwrap();
+    migrate_database().unwrap();
+    let pool = PgPool::new().unwrap();
 
     (0..4)
         .map(|_| {

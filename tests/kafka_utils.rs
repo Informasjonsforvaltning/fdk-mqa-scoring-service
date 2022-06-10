@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use fdk_mqa_scoring_service::{
-    database::connection_pool,
+    database::PgPool,
     error::MqaError,
     kafka::{create_consumer, handle_message, BROKERS},
 };
@@ -18,7 +18,7 @@ use serde::Serialize;
 
 pub async fn process_single_message() -> Result<(), MqaError> {
     let consumer = create_consumer().unwrap();
-    let pool = connection_pool().unwrap();
+    let pool = PgPool::new().unwrap();
     // Attempt to receive message for 3s before aborting with an error
     let message = tokio::time::timeout(Duration::from_millis(3000), consumer.stream().next())
         .await
