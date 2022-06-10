@@ -4,6 +4,7 @@ extern crate diesel;
 pub mod database;
 pub mod error;
 pub mod helpers;
+mod json_conversion;
 pub mod kafka;
 mod measurement_graph;
 mod measurement_value;

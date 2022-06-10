@@ -11,7 +11,8 @@ pub mod dcat {
     use super::N;
 
     pub const DATASET: N = n!("http://www.w3.org/ns/dcat#Dataset");
-    pub const DISTRIBUTION: N = n!("http://www.w3.org/ns/dcat#Distribution");
+    pub const DISTRIBUTION: N = n!("http://www.w3.org/ns/dcat#distribution");
+    pub const DISTRIBUTION_CLASS: N = n!("http://www.w3.org/ns/dcat#Distribution");
 }
 
 pub mod dqv {

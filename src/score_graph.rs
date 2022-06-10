@@ -8,8 +8,9 @@ use crate::{
     vocab::{dcat_mqa, dqv},
 };
 
-static VOCAB_GRAPH: &str = include_str!("../graphs/dcatno-mqa-vocabulary.ttl");
-static SCORE_GRAPH: &str = include_str!("../graphs/dcatno-mqa-vocabulary-default-score-values.ttl");
+pub static VOCAB_GRAPH: &str = include_str!("../graphs/dcatno-mqa-vocabulary.ttl");
+pub static SCORE_GRAPH: &str =
+    include_str!("../graphs/dcatno-mqa-vocabulary-default-score-values.ttl");
 
 pub struct ScoreGraph(pub oxigraph::store::Store);
 pub type Dimension = (NamedNode, Vec<ScoreMetric>);

@@ -7,7 +7,10 @@ use diesel::{
 use diesel_migrations::{embed_migrations, EmbeddedMigrations, MigrationHarness};
 use uuid::Uuid;
 
-use crate::{models::Graph, schema};
+use crate::{
+    models::{Dataset, Dimension},
+    schema,
+};
 
 pub const MIGRATIONS: EmbeddedMigrations = embed_migrations!("./migrations");
 
@@ -70,25 +73,38 @@ impl PgPool {
 pub struct PgConn(PooledConnection<ConnectionManager<PgConnection>>);
 
 impl PgConn {
-    pub fn store_graph(&mut self, graph: Graph) -> Result<(), DatabaseError> {
-        use schema::graphs::dsl;
+    pub fn store_dataset(&mut self, dataset: Dataset) -> Result<(), DatabaseError> {
+        use schema::datasets::dsl;
 
-        diesel::insert_into(dsl::graphs)
-            .values(&graph)
-            .on_conflict(dsl::fdk_id)
+        diesel::insert_into(dsl::datasets)
+            .values(&dataset)
+            .on_conflict(dsl::id)
             .do_update()
-            .set(&graph)
+            .set(&dataset)
             .execute(&mut self.0)?;
 
         Ok(())
     }
 
-    pub fn get_score_graph_by_id(&mut self, fdk_id: Uuid) -> Result<Option<String>, DatabaseError> {
-        use schema::graphs::dsl;
+    pub fn store_dimension(&mut self, dimension: Dimension) -> Result<(), DatabaseError> {
+        use schema::dimensions::dsl;
 
-        match dsl::graphs
-            .filter(dsl::fdk_id.eq(fdk_id.to_string()))
-            .select(dsl::score)
+        diesel::insert_into(dsl::dimensions)
+            .values(&dimension)
+            .on_conflict((dsl::dataset_id, dsl::title))
+            .do_update()
+            .set(&dimension)
+            .execute(&mut self.0)?;
+
+        Ok(())
+    }
+
+    pub fn get_score_graph_by_id(&mut self, id: Uuid) -> Result<Option<String>, DatabaseError> {
+        use schema::datasets::dsl;
+
+        match dsl::datasets
+            .filter(dsl::id.eq(id.to_string()))
+            .select(dsl::score_graph)
             .first(&mut self.0)
         {
             Ok(graph) => Ok(Some(graph)),

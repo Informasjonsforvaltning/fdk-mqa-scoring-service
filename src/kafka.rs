@@ -17,8 +17,14 @@ use schema_registry_converter::{
 use uuid::Uuid;
 
 use crate::{
-    database::PgPool, error::MqaError, measurement_graph::MeasurementGraph, models::Graph,
-    schemas::MQAEvent, score::calculate_score, score_graph::ScoreGraph,
+    database::PgPool,
+    error::MqaError,
+    json_conversion::parse_scores,
+    measurement_graph::MeasurementGraph,
+    models::{Dataset, Dimension},
+    schemas::MQAEvent,
+    score::calculate_score,
+    score_graph::{ScoreGraph, SCORE_GRAPH, VOCAB_GRAPH},
 };
 
 lazy_static! {
@@ -126,16 +132,33 @@ async fn handle_event(event: MQAEvent, pool: PgPool) -> Result<(), MqaError> {
     measurement_graph.insert_scores(&vec![dataset_score])?;
     measurement_graph.insert_scores(&distribution_scores)?;
 
-    let graph = Graph {
-        fdk_id: fdk_id.to_string(),
-        score: measurement_graph.to_string()?,
-        vocab: format!(
-            "{}\n{}",
-            include_str!("../graphs/dcatno-mqa-vocabulary.ttl"),
-            include_str!("../graphs/dcatno-mqa-vocabulary-default-score-values.ttl")
-        ),
+    let score_graph = measurement_graph.to_string()?;
+
+    let scores = parse_scores(format!(
+        "{}\n{}\n{}",
+        VOCAB_GRAPH,
+        SCORE_GRAPH,
+        score_graph.clone(),
+    ))?;
+    let score_json = serde_json::to_string(&scores)?;
+
+    let graph = Dataset {
+        id: fdk_id.to_string(),
+        publisher_id: "TODO: publisher id".to_string(), // TODO: fetch from kafka message
+        title: "TODO: dataset tile".to_string(),        // TODO: fetch from kafka message
+        score_graph,
+        score_json,
     };
-    conn.store_graph(graph)?;
+    conn.store_dataset(graph)?;
+
+    for dimension in scores.dataset.dimensions {
+        conn.store_dimension(Dimension {
+            dataset_id: fdk_id.to_string(),
+            title: dimension.name,
+            score: dimension.score as i32,
+            max_score: dimension.max_score as i32,
+        })?;
+    }
 
     Ok(())
 }

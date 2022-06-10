@@ -37,7 +37,7 @@ impl MeasurementGraph {
         Ok(())
     }
 
-    /// Retrieves all named or blank dataset nodes.
+    /// Retrieves all named dataset nodes.
     pub fn dataset(&self) -> Result<NamedNode, MqaError> {
         self.0
             .quads_for_pattern(
@@ -51,13 +51,13 @@ impl MeasurementGraph {
             .unwrap_or(Err("measurement graph has no datasets".into()))
     }
 
-    /// Retrieves all named or blank distribution nodes.
+    /// Retrieves all named distribution nodes.
     pub fn distributions(&self) -> Result<Vec<NamedNode>, MqaError> {
         self.0
             .quads_for_pattern(
                 None,
                 Some(rdf_syntax::TYPE),
-                Some(dcat::DISTRIBUTION.into()),
+                Some(dcat::DISTRIBUTION_CLASS.into()),
                 None,
             )
             .map(named_quad_subject)
