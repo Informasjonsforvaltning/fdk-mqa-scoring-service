@@ -51,8 +51,10 @@ async fn assert_transformation(input: &str, expected: &str) {
         graph: input.to_string(),
     };
 
+    let pool = PgPool::new().unwrap();
+
     // Start async node-namer process
-    let processor = process_single_message();
+    let processor = process_single_message(pool.clone());
 
     // Produce message to node-namer input topic
     TestProducer::new(&INPUT_TOPIC)
@@ -62,7 +64,6 @@ async fn assert_transformation(input: &str, expected: &str) {
     // Wait for node-namer to process message and assert result is ok
     processor.await.unwrap();
 
-    let pool = PgPool::new().unwrap();
     let mut conn = pool.get().unwrap();
     let graph = conn.get_score_graph_by_id(uuid).unwrap().unwrap();
 

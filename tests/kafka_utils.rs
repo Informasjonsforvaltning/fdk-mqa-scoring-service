@@ -16,9 +16,8 @@ use schema_registry_converter::{
 };
 use serde::Serialize;
 
-pub async fn process_single_message() -> Result<(), MqaError> {
+pub async fn process_single_message(pool: PgPool) -> Result<(), MqaError> {
     let consumer = create_consumer().unwrap();
-    let pool = PgPool::new().unwrap();
     // Attempt to receive message for 3s before aborting with an error
     let message = tokio::time::timeout(Duration::from_millis(3000), consumer.stream().next())
         .await

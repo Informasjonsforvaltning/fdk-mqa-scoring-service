@@ -33,13 +33,14 @@ fn var(key: &'static str) -> Result<String, DatabaseError> {
 }
 
 fn database_url() -> Result<String, DatabaseError> {
-    let host = var("POSTGRES_HOST")?;
-    let port = var("POSTGRES_PORT")?
+    let host = var("POSTGRES_HOST").unwrap_or("localhost".to_string());
+    let port = var("POSTGRES_PORT")
+        .unwrap_or("5432".to_string())
         .parse::<u16>()
         .map_err(|e| DatabaseError::ConfigError("POSTGRES_PORT", e.to_string()))?;
-    let user = var("POSTGRES_USERNAME")?;
-    let password = var("POSTGRES_PASSWORD")?;
-    let dbname = var("POSTGRES_DB_NAME")?;
+    let user = var("POSTGRES_USERNAME").unwrap_or("postgres".to_string());
+    let password = var("POSTGRES_PASSWORD").unwrap_or("postgres".to_string());
+    let dbname = var("POSTGRES_DB_NAME").unwrap_or("mqa".to_string());
     let url = format!("postgres://{user}:{password}@{host}:{port}/{dbname}");
 
     Ok(url)

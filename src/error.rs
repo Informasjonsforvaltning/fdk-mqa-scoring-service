@@ -5,7 +5,7 @@ use oxigraph::{
 };
 use thiserror::Error;
 
-use crate::{database, json_conversion};
+use crate::database;
 
 #[derive(Error, Debug)]
 pub enum MqaError {
@@ -31,8 +31,6 @@ pub enum MqaError {
     SRCError(#[from] schema_registry_converter::error::SRCError),
     #[error(transparent)]
     DatabaseError(#[from] database::DatabaseError),
-    #[error(transparent)]
-    JsonConversionError(#[from] json_conversion::JsonConversionError),
     #[error("{0}")]
     String(String),
 }

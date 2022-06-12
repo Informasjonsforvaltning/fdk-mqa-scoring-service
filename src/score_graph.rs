@@ -15,6 +15,12 @@ pub static SCORE_GRAPH: &str =
 pub struct ScoreGraph(pub oxigraph::store::Store);
 
 #[derive(Debug, PartialEq)]
+pub struct ScoreDefinitions {
+    pub dimensions: Vec<ScoreDimension>,
+    pub total_score: u64,
+}
+
+#[derive(Debug, PartialEq)]
 pub struct ScoreDimension {
     pub name: NamedNode,
     pub metrics: Vec<ScoreMetric>,
@@ -34,8 +40,9 @@ impl ScoreGraph {
     }
 
     // Retrieves the metrics and values of each score dimension.
-    pub fn scores(&self) -> Result<Vec<ScoreDimension>, MqaError> {
-        self.dimensions()?
+    pub fn scores(&self) -> Result<ScoreDefinitions, MqaError> {
+        let dimensions = self
+            .dimensions()?
             .into_iter()
             .map(|name| {
                 let metrics = self.metrics(name.as_ref())?;
@@ -46,12 +53,20 @@ impl ScoreGraph {
                     total_score,
                 })
             })
-            .collect()
+            .collect::<Result<Vec<ScoreDimension>, MqaError>>()?;
+        Ok(ScoreDefinitions {
+            total_score: dimensions
+                .iter()
+                .map(|dimension| dimension.total_score)
+                .sum(),
+            dimensions,
+        })
     }
 
     /// Retrieves all named dimensions.
     fn dimensions(&self) -> Result<Vec<NamedNode>, MqaError> {
-        self.0
+        let mut dimensions = self
+            .0
             .quads_for_pattern(
                 None,
                 Some(rdf::TYPE),
@@ -59,7 +74,9 @@ impl ScoreGraph {
                 None,
             )
             .map(named_quad_subject)
-            .collect()
+            .collect::<Result<Vec<NamedNode>, MqaError>>()?;
+        dimensions.sort();
+        Ok(dimensions)
     }
 
     /// Retrieves all named metrics and their values, for a given dimension.
@@ -72,6 +89,7 @@ impl ScoreGraph {
                     ?metric {} {dimension} .
                     ?metric {} ?score .
                 }}
+                ORDER BY ?metric
             ",
             dqv::METRIC,
             dqv::IN_DIMENSION,
@@ -141,7 +159,7 @@ mod tests {
     fn dimensions() {
         assert_eq!(
             score_graph().dimensions().unwrap(),
-            vec![mqa_node("interoperability"), mqa_node("accessibility"),]
+            vec![mqa_node("accessibility"), mqa_node("interoperability")]
         )
     }
 
@@ -149,30 +167,33 @@ mod tests {
     fn score() {
         assert_eq!(
             score_graph().scores().unwrap(),
-            vec![
-                ScoreDimension {
-                    name: mqa_node("interoperability"),
-                    metrics: vec![ScoreMetric {
-                        name: mqa_node("formatAvailability"),
-                        score: 20
-                    }],
-                    total_score: 20,
-                },
-                ScoreDimension {
-                    name: mqa_node("accessibility"),
-                    metrics: vec![
-                        ScoreMetric {
-                            name: mqa_node("downloadUrlAvailability"),
+            ScoreDefinitions {
+                dimensions: vec![
+                    ScoreDimension {
+                        name: mqa_node("accessibility"),
+                        metrics: vec![
+                            ScoreMetric {
+                                name: mqa_node("accessUrlStatusCode"),
+                                score: 50
+                            },
+                            ScoreMetric {
+                                name: mqa_node("downloadUrlAvailability"),
+                                score: 20
+                            },
+                        ],
+                        total_score: 70,
+                    },
+                    ScoreDimension {
+                        name: mqa_node("interoperability"),
+                        metrics: vec![ScoreMetric {
+                            name: mqa_node("formatAvailability"),
                             score: 20
-                        },
-                        ScoreMetric {
-                            name: mqa_node("accessUrlStatusCode"),
-                            score: 50
-                        },
-                    ],
-                    total_score: 70,
-                }
-            ]
+                        }],
+                        total_score: 20,
+                    }
+                ],
+                total_score: 90,
+            }
         );
     }
 

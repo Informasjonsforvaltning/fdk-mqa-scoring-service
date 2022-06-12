@@ -19,12 +19,12 @@ use uuid::Uuid;
 use crate::{
     database::PgPool,
     error::MqaError,
-    json_conversion::parse_scores,
+    json_conversion::convert_scores,
     measurement_graph::MeasurementGraph,
     models::{Dataset, Dimension},
     schemas::MQAEvent,
     score::calculate_score,
-    score_graph::{ScoreGraph, SCORE_GRAPH, VOCAB_GRAPH},
+    score_graph::ScoreGraph,
 };
 
 lazy_static! {
@@ -115,7 +115,7 @@ pub async fn handle_message(
 async fn handle_event(event: MQAEvent, pool: PgPool) -> Result<(), MqaError> {
     // TODO: load one per worker and pass metrics_scores to `handle_event`
     let score_graph = ScoreGraph::new()?;
-    let metric_scores = score_graph.scores()?;
+    let score_definitions = score_graph.scores()?;
 
     let mut measurement_graph = MeasurementGraph::new()?;
     measurement_graph.load(event.graph)?;
@@ -128,26 +128,19 @@ async fn handle_event(event: MQAEvent, pool: PgPool) -> Result<(), MqaError> {
         measurement_graph.load(graph)?;
     }
 
-    let (dataset_score, distribution_scores) = calculate_score(&measurement_graph, &metric_scores)?;
+    let (dataset_score, distribution_scores) =
+        calculate_score(&measurement_graph, &score_definitions)?;
+    let scores = convert_scores(&score_definitions, &dataset_score, &distribution_scores);
+
     measurement_graph.insert_scores(&vec![dataset_score])?;
     measurement_graph.insert_scores(&distribution_scores)?;
-
-    let score_graph = measurement_graph.to_string()?;
-
-    let scores = parse_scores(format!(
-        "{}\n{}\n{}",
-        VOCAB_GRAPH,
-        SCORE_GRAPH,
-        score_graph.clone(),
-    ))?;
-    let score_json = serde_json::to_string(&scores)?;
 
     let graph = Dataset {
         id: fdk_id.to_string(),
         publisher_id: "TODO: publisher id".to_string(), // TODO: fetch from kafka message
         title: "TODO: dataset tile".to_string(),        // TODO: fetch from kafka message
-        score_graph,
-        score_json,
+        score_graph: measurement_graph.to_string()?,
+        score_json: serde_json::to_string(&scores)?,
     };
     conn.store_dataset(graph)?;
 
