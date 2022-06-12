@@ -27,8 +27,4 @@ table! {
 joinable!(dataset_catalogs -> datasets (dataset_id));
 joinable!(dimensions -> datasets (dataset_id));
 
-allow_tables_to_appear_in_same_query!(
-    dataset_catalogs,
-    datasets,
-    dimensions,
-);
+allow_tables_to_appear_in_same_query!(dataset_catalogs, datasets, dimensions,);

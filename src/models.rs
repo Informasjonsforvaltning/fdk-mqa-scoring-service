@@ -21,7 +21,7 @@ pub struct Dimension {
 
 #[derive(Insertable, Queryable, AsChangeset)]
 #[diesel(table_name = dataset_catalogs)]
-pub struct DatasetCatalogs {
+pub struct DatasetCatalog {
     pub dataset_id: String,
     pub catalog_id: String,
 }

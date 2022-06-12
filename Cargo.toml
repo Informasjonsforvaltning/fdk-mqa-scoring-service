@@ -5,8 +5,8 @@ edition = "2021"
 
 [dependencies]
 avro-rs = "0.13.0"
-diesel = { version = "2.0.0-rc.0", features = ["postgres", "r2d2"] }
-diesel_migrations = { version = "2.0.0-rc.0", features = ["postgres"] }
+diesel = { version = "1.4.8", features = ["postgres", "r2d2"] }
+diesel_migrations = { version = "1.4.0", features = ["postgres"] }
 futures = "0.3.21"
 lazy_static = "1.4.0"
 oxigraph = "0.3.1"

@@ -4,7 +4,6 @@ use diesel::{
     result::Error::NotFound,
     Connection, PgConnection, QueryDsl, RunQueryDsl,
 };
-use diesel_migrations::{embed_migrations, EmbeddedMigrations, MigrationHarness};
 use uuid::Uuid;
 
 use crate::{
@@ -12,7 +11,7 @@ use crate::{
     schema,
 };
 
-pub const MIGRATIONS: EmbeddedMigrations = embed_migrations!("./migrations");
+diesel_migrations::embed_migrations!("./migrations");
 
 #[derive(thiserror::Error, Debug)]
 pub enum DatabaseError {
@@ -26,6 +25,8 @@ pub enum DatabaseError {
     DieselError(#[from] diesel::result::Error),
     #[error(transparent)]
     DieselConnectionError(#[from] diesel::ConnectionError),
+    #[error(transparent)]
+    DieselMigrationError(#[from] diesel_migrations::RunMigrationsError),
 }
 
 fn var(key: &'static str) -> Result<String, DatabaseError> {
@@ -33,14 +34,13 @@ fn var(key: &'static str) -> Result<String, DatabaseError> {
 }
 
 fn database_url() -> Result<String, DatabaseError> {
-    let host = var("POSTGRES_HOST").unwrap_or("localhost".to_string());
-    let port = var("POSTGRES_PORT")
-        .unwrap_or("5432".to_string())
+    let host = var("POSTGRES_HOST")?;
+    let port = var("POSTGRES_PORT")?
         .parse::<u16>()
         .map_err(|e| DatabaseError::ConfigError("POSTGRES_PORT", e.to_string()))?;
-    let user = var("POSTGRES_USERNAME").unwrap_or("postgres".to_string());
-    let password = var("POSTGRES_PASSWORD").unwrap_or("postgres".to_string());
-    let dbname = var("POSTGRES_DB_NAME").unwrap_or("mqa".to_string());
+    let user = var("POSTGRES_USERNAME")?;
+    let password = var("POSTGRES_PASSWORD")?;
+    let dbname = var("POSTGRES_DB_NAME")?;
     let url = format!("postgres://{user}:{password}@{host}:{port}/{dbname}");
 
     Ok(url)
@@ -48,9 +48,8 @@ fn database_url() -> Result<String, DatabaseError> {
 
 pub fn migrate_database() -> Result<(), DatabaseError> {
     let url = database_url()?;
-    PgConnection::establish(&url)?
-        .run_pending_migrations(MIGRATIONS)
-        .map_err(|e| DatabaseError::MigrationError(e.to_string()))?;
+    let conn = PgConnection::establish(&url)?;
+    embedded_migrations::run(&conn)?;
 
     Ok(())
 }
