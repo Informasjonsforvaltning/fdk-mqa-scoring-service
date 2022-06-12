@@ -112,4 +112,18 @@ impl PgConn {
             Err(e) => Err(e.into()),
         }
     }
+
+    pub fn get_score_json_by_id(&mut self, id: Uuid) -> Result<Option<String>, DatabaseError> {
+        use schema::datasets::dsl;
+
+        match dsl::datasets
+            .filter(dsl::id.eq(id.to_string()))
+            .select(dsl::score_json)
+            .first(&mut self.0)
+        {
+            Ok(graph) => Ok(Some(graph)),
+            Err(NotFound) => Ok(None),
+            Err(e) => Err(e.into()),
+        }
+    }
 }

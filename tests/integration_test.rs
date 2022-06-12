@@ -1,5 +1,6 @@
 use fdk_mqa_scoring_service::{
     database::{migrate_database, PgPool},
+    json_conversion::Scores,
     kafka::INPUT_TOPIC,
     schemas::{MQAEvent, MQAEventType},
 };
@@ -37,10 +38,11 @@ async fn score() {
             _:d <http://www.w3.org/ns/dqv#isMeasurementOf> <https://data.norge.no/vocabulary/dcatno-mqa#formatAvailability> .
         "#,
         include_str!("expected.ttl"),
+        include_str!("expected.json"),
     ).await;
 }
 
-async fn assert_transformation(input: &str, expected: &str) {
+async fn assert_transformation(input: &str, expected_ttl: &str, expected_json: &str) {
     migrate_database().unwrap();
 
     let uuid = Uuid::new_v4();
@@ -65,7 +67,13 @@ async fn assert_transformation(input: &str, expected: &str) {
     processor.await.unwrap();
 
     let mut conn = pool.get().unwrap();
-    let graph = conn.get_score_graph_by_id(uuid).unwrap().unwrap();
 
-    assert_eq!(sorted_lines(&graph), sorted_lines(expected));
+    let graph = conn.get_score_graph_by_id(uuid).unwrap().unwrap();
+    assert_eq!(sorted_lines(&graph), sorted_lines(expected_ttl));
+
+    let json = conn.get_score_json_by_id(uuid).unwrap().unwrap();
+    assert_eq!(
+        serde_json::from_str::<Scores>(json.as_str()).unwrap(),
+        serde_json::from_str::<Scores>(expected_json).unwrap()
+    );
 }

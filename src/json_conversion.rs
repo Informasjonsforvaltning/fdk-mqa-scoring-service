@@ -1,14 +1,14 @@
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use crate::{score, score_graph::ScoreDefinitions};
 
-#[derive(Debug, Serialize, PartialEq)]
+#[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub struct Scores {
     pub dataset: Score,
     distributions: Vec<Score>,
 }
 
-#[derive(Debug, Serialize, PartialEq)]
+#[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub struct Score {
     name: String,
     pub dimensions: Vec<DimensionScore>,
@@ -16,7 +16,7 @@ pub struct Score {
     max_score: u64,
 }
 
-#[derive(Debug, Serialize, PartialEq)]
+#[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub struct DimensionScore {
     pub name: String,
     metrics: Vec<MetricScore>,
@@ -24,7 +24,7 @@ pub struct DimensionScore {
     pub max_score: u64,
 }
 
-#[derive(Debug, Serialize, PartialEq)]
+#[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub struct MetricScore {
     metric: String,
     score: u64,
