@@ -103,10 +103,14 @@ impl MeasurementGraph {
 
     /// Inserts score into measurement graph.
     pub fn insert_scores(&mut self, scores: &Vec<Score>) -> Result<(), MqaError> {
-        for Score(node, dimensions) in scores {
+        for Score {
+            name: node,
+            dimensions,
+        } in scores
+        {
             self.insert_node_score(node.as_ref(), dimensions)?;
-            for DimensionScore(dimension, metrics) in dimensions {
-                self.insert_dimension_score(node.as_ref(), dimension.as_ref(), metrics)?;
+            for DimensionScore { name, metrics } in dimensions {
+                self.insert_dimension_score(node.as_ref(), name.as_ref(), metrics)?;
                 for metric_score in metrics {
                     self.insert_measurement_score(node.as_ref(), metric_score)?;
                 }
@@ -123,10 +127,10 @@ impl MeasurementGraph {
     ) -> Result<(), MqaError> {
         let sum = dimensions
             .iter()
-            .map(|DimensionScore(_, metrics_scores)| {
-                metrics_scores
+            .map(|DimensionScore { metrics, .. }| {
+                metrics
                     .iter()
-                    .filter_map(|MetricScore(_, score)| score.clone())
+                    .filter_map(|MetricScore { score, .. }| score.clone())
                     .sum::<u64>()
             })
             .sum::<u64>();
@@ -144,7 +148,7 @@ impl MeasurementGraph {
         let metric = NamedNode::new(format!("{}Scoring", dimension.as_str()).as_str())?;
         let sum = metrics
             .iter()
-            .filter_map(|MetricScore(_, score)| score.clone())
+            .filter_map(|MetricScore { score, .. }| score.clone())
             .sum::<u64>();
 
         self.insert_measurement_property(node, metric.as_ref(), dqv::VALUE, sum)
@@ -154,15 +158,13 @@ impl MeasurementGraph {
     fn insert_measurement_score(
         &mut self,
         node: NamedNodeRef,
-        metric_score: &MetricScore,
+        metric: &MetricScore,
     ) -> Result<(), MqaError> {
-        let MetricScore(metric, score) = metric_score;
-
         self.insert_measurement_property(
             node,
-            metric.as_ref(),
+            metric.name.as_ref(),
             dcat_mqa::SCORE,
-            score.unwrap_or_default(),
+            metric.score.unwrap_or_default(),
         )
     }
 

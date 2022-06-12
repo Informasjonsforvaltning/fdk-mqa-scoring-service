@@ -114,7 +114,7 @@ pub async fn handle_message(
 
 async fn handle_event(event: MQAEvent, pool: PgPool) -> Result<(), MqaError> {
     // TODO: load one per worker and pass metrics_scores to `handle_event`
-    let score_graph = ScoreGraph::load()?;
+    let score_graph = ScoreGraph::new()?;
     let metric_scores = score_graph.scores()?;
 
     let mut measurement_graph = MeasurementGraph::new()?;

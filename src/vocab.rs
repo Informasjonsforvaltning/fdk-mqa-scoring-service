@@ -18,7 +18,7 @@ pub mod dcat {
 pub mod dqv {
     use super::N;
 
-    pub const DIMENSION: N = n!("http://www.w3.org/ns/dqv#Dimension");
+    pub const DIMENSION_CLASS: N = n!("http://www.w3.org/ns/dqv#Dimension");
     pub const IN_DIMENSION: N = n!("http://www.w3.org/ns/dqv#inDimension");
     pub const QUALITY_MEASUREMENT_CLASS: N = n!("http://www.w3.org/ns/dqv#QualityMeasurement");
     pub const HAS_QUALITY_MEASUREMENT: N = n!("http://www.w3.org/ns/dqv#hasQualityMeasurement");
