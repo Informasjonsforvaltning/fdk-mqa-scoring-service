@@ -127,13 +127,10 @@ pub async fn handle_message(message: OwnedMessage, sr_settings: SrSettings) -> R
             event_type = format!("{:?}", event.event_type).as_str(),
         );
 
-        tokio::task::spawn_blocking(move || {
-            let _enter = span.enter();
-            handle_event(event)
-        })
-        .await
-        .map_err(|e| e.to_string())?
-        .await?;
+        tokio::task::spawn_blocking(move || handle_event(event).instrument(span))
+            .await
+            .map_err(|e| e.to_string())?
+            .await?;
     } else {
         tracing::info!("skipping event");
     }

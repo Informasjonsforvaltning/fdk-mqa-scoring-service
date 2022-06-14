@@ -29,11 +29,18 @@ async fn main() {
         .map(|i| tokio::spawn(kafka::run_async_processor(i, sr_settings.clone())))
         .collect::<FuturesUnordered<_>>()
         .for_each(|result| async {
-            match result {
-                Err(e) => panic!("{}", e),
-                Ok(Err(e)) => panic!("{}", e),
-                _ => (),
-            }
+            result
+                .unwrap_or_else(|e| {
+                    tracing::error!(
+                        error = e.to_string().as_str(),
+                        "unable to run worker thread"
+                    );
+                    std::process::exit(1);
+                })
+                .unwrap_or_else(|e| {
+                    tracing::error!(error = e.to_string().as_str(), "worker failed");
+                    std::process::exit(1);
+                });
         })
-        .await;
+        .await
 }
