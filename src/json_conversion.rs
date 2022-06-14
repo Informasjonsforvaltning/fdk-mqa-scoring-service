@@ -2,26 +2,32 @@ use serde::{Deserialize, Serialize};
 
 use crate::{score, score_graph::ScoreDefinitions};
 
+#[derive(Debug, Serialize, Deserialize)]
+pub struct UpdateRequest {
+    pub graph: String,
+    pub scores: Scores,
+}
+
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub struct Scores {
-    pub dataset: Score,
+    dataset: Score,
     distributions: Vec<Score>,
 }
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub struct Score {
     name: String,
-    pub dimensions: Vec<DimensionScore>,
+    dimensions: Vec<DimensionScore>,
     score: u64,
     max_score: u64,
 }
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub struct DimensionScore {
-    pub name: String,
+    name: String,
     metrics: Vec<MetricScore>,
-    pub score: u64,
-    pub max_score: u64,
+    score: u64,
+    max_score: u64,
 }
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]

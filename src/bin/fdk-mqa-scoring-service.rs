@@ -1,14 +1,18 @@
 use std::time::Duration;
 
-use fdk_mqa_scoring_service::{
-    database::{migrate_database, PgPool},
-    kafka::{self, SCHEMA_REGISTRY},
-};
+use fdk_mqa_scoring_service::kafka::{self, SCHEMA_REGISTRY};
 use futures::stream::{FuturesUnordered, StreamExt};
 use schema_registry_converter::async_impl::schema_registry::SrSettings;
 
 #[tokio::main]
 async fn main() {
+    tracing_subscriber::fmt()
+        .json()
+        .with_max_level(tracing::Level::INFO)
+        .with_target(false)
+        .with_current_span(false)
+        .init();
+
     let mut schema_registry_urls = SCHEMA_REGISTRY.split(",");
     let mut sr_settings_builder =
         SrSettings::new_builder(schema_registry_urls.next().unwrap().to_string());
@@ -21,16 +25,8 @@ async fn main() {
         .build()
         .unwrap();
 
-    migrate_database().unwrap();
-    let pool = PgPool::new().unwrap();
-
     (0..4)
-        .map(|_| {
-            tokio::spawn(kafka::run_async_processor(
-                sr_settings.clone(),
-                pool.clone(),
-            ))
-        })
+        .map(|i| tokio::spawn(kafka::run_async_processor(i, sr_settings.clone())))
         .collect::<FuturesUnordered<_>>()
         .for_each(|result| async {
             match result {

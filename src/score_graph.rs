@@ -1,7 +1,7 @@
 use oxigraph::model::{vocab::rdf, NamedNode, NamedNodeRef, Term};
 
 use crate::{
-    error::MqaError,
+    error::Error,
     helpers::execute_query,
     helpers::{named_quad_subject, parse_graphs},
     measurement_value::MeasurementValue,
@@ -35,12 +35,12 @@ pub struct ScoreMetric {
 
 impl ScoreGraph {
     // Loads score graph from files.
-    pub fn new() -> Result<Self, MqaError> {
+    pub fn new() -> Result<Self, Error> {
         parse_graphs(vec![VOCAB_GRAPH, SCORE_GRAPH]).map(|store| Self(store))
     }
 
     // Retrieves the metrics and values of each score dimension.
-    pub fn scores(&self) -> Result<ScoreDefinitions, MqaError> {
+    pub fn scores(&self) -> Result<ScoreDefinitions, Error> {
         let dimensions = self
             .dimensions()?
             .into_iter()
@@ -53,7 +53,7 @@ impl ScoreGraph {
                     total_score,
                 })
             })
-            .collect::<Result<Vec<ScoreDimension>, MqaError>>()?;
+            .collect::<Result<Vec<ScoreDimension>, Error>>()?;
         Ok(ScoreDefinitions {
             total_score: dimensions
                 .iter()
@@ -64,7 +64,7 @@ impl ScoreGraph {
     }
 
     /// Retrieves all named dimensions.
-    fn dimensions(&self) -> Result<Vec<NamedNode>, MqaError> {
+    fn dimensions(&self) -> Result<Vec<NamedNode>, Error> {
         let mut dimensions = self
             .0
             .quads_for_pattern(
@@ -74,13 +74,13 @@ impl ScoreGraph {
                 None,
             )
             .map(named_quad_subject)
-            .collect::<Result<Vec<NamedNode>, MqaError>>()?;
+            .collect::<Result<Vec<NamedNode>, Error>>()?;
         dimensions.sort();
         Ok(dimensions)
     }
 
     /// Retrieves all named metrics and their values, for a given dimension.
-    fn metrics(&self, dimension: NamedNodeRef) -> Result<Vec<ScoreMetric>, MqaError> {
+    fn metrics(&self, dimension: NamedNodeRef) -> Result<Vec<ScoreMetric>, Error> {
         let q = format!(
             "
                 SELECT ?metric ?score
@@ -119,7 +119,7 @@ impl ScoreGraph {
 
 impl ScoreMetric {
     /// Score a measurement value.
-    pub fn score(&self, value: &MeasurementValue) -> Result<u64, MqaError> {
+    pub fn score(&self, value: &MeasurementValue) -> Result<u64, Error> {
         use crate::vocab::dcat_mqa::*;
         use MeasurementValue::*;
 

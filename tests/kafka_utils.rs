@@ -1,8 +1,7 @@
 use std::time::Duration;
 
 use fdk_mqa_scoring_service::{
-    database::PgPool,
-    error::MqaError,
+    error::Error,
     kafka::{create_consumer, handle_message, BROKERS},
 };
 use futures::StreamExt;
@@ -16,7 +15,7 @@ use schema_registry_converter::{
 };
 use serde::Serialize;
 
-pub async fn process_single_message(pool: PgPool) -> Result<(), MqaError> {
+pub async fn process_single_message() -> Result<(), Error> {
     let consumer = create_consumer().unwrap();
     // Attempt to receive message for 3s before aborting with an error
     let message = tokio::time::timeout(Duration::from_millis(3000), consumer.stream().next())
@@ -26,7 +25,7 @@ pub async fn process_single_message(pool: PgPool) -> Result<(), MqaError> {
         .unwrap()
         .detach();
 
-    handle_message(message, sr_settings(), pool).await
+    handle_message(message, sr_settings()).await
 }
 
 pub fn sr_settings() -> SrSettings {

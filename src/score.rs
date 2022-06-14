@@ -2,7 +2,7 @@ use oxigraph::model::{NamedNode, NamedNodeRef};
 use std::collections::HashMap;
 
 use crate::{
-    error::MqaError,
+    error::Error,
     measurement_graph::MeasurementGraph,
     measurement_value::MeasurementValue,
     score_graph::{ScoreDefinitions, ScoreDimension},
@@ -43,7 +43,7 @@ fn sum_metrics(metrics: &Vec<MetricScore>) -> u64 {
 pub fn calculate_score(
     measurement_graph: &MeasurementGraph,
     score_definitions: &ScoreDefinitions,
-) -> Result<(Score, Vec<Score>), MqaError> {
+) -> Result<(Score, Vec<Score>), Error> {
     let graph_measurements = measurement_graph.quality_measurements()?;
 
     let dataset_name = measurement_graph.dataset()?;
@@ -68,7 +68,7 @@ pub fn calculate_score(
                 dimensions,
             })
         })
-        .collect::<Result<_, MqaError>>()?;
+        .collect::<Result<_, Error>>()?;
 
     let dataset_merged_distribution_scores: Vec<Score> = distribution_scores
         .iter()
@@ -137,7 +137,7 @@ fn node_dimension_scores(
     score_definitions: &ScoreDefinitions,
     graph_measurements: &HashMap<(NamedNode, NamedNode), MeasurementValue>,
     node: NamedNodeRef,
-) -> Result<Vec<DimensionScore>, MqaError> {
+) -> Result<Vec<DimensionScore>, Error> {
     score_definitions
         .dimensions
         .iter()
@@ -153,7 +153,7 @@ fn node_dimension_scores(
                         },
                     })
                 })
-                .collect::<Result<_, MqaError>>()?;
+                .collect::<Result<_, Error>>()?;
             Ok(DimensionScore {
                 name: name.clone(),
                 score: sum_metrics(&metrics),

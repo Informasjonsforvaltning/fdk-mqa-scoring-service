@@ -1,11 +1,8 @@
 use fdk_mqa_scoring_service::{
-    database::{migrate_database, PgPool},
-    json_conversion::Scores,
     kafka::INPUT_TOPIC,
     schemas::{MQAEvent, MQAEventType},
 };
 use kafka_utils::{process_single_message, TestProducer};
-use utils::sorted_lines;
 use uuid::Uuid;
 
 mod kafka_utils;
@@ -43,8 +40,6 @@ async fn score() {
 }
 
 async fn assert_transformation(input: &str, expected_ttl: &str, expected_json: &str) {
-    migrate_database().unwrap();
-
     let uuid = Uuid::new_v4();
     let input_message = MQAEvent {
         event_type: MQAEventType::PropertiesChecked,
@@ -53,10 +48,8 @@ async fn assert_transformation(input: &str, expected_ttl: &str, expected_json: &
         graph: input.to_string(),
     };
 
-    let pool = PgPool::new().unwrap();
-
     // Start async node-namer process
-    let processor = process_single_message(pool.clone());
+    let processor = process_single_message();
 
     // Produce message to node-namer input topic
     TestProducer::new(&INPUT_TOPIC)
@@ -66,14 +59,14 @@ async fn assert_transformation(input: &str, expected_ttl: &str, expected_json: &
     // Wait for node-namer to process message and assert result is ok
     processor.await.unwrap();
 
-    let mut conn = pool.get().unwrap();
+    // TODO: assert result
 
-    let graph = conn.get_score_graph_by_id(uuid).unwrap().unwrap();
-    assert_eq!(sorted_lines(&graph), sorted_lines(expected_ttl));
+    // let graph =
+    // assert_eq!(sorted_lines(&graph), sorted_lines(expected_ttl));
 
-    let json = conn.get_score_json_by_id(uuid).unwrap().unwrap();
-    assert_eq!(
-        serde_json::from_str::<Scores>(json.as_str()).unwrap(),
-        serde_json::from_str::<Scores>(expected_json).unwrap()
-    );
+    // let json =
+    // assert_eq!(
+    //     serde_json::from_str::<Scores>(json.as_str()).unwrap(),
+    //     serde_json::from_str::<Scores>(expected_json).unwrap()
+    // );
 }

@@ -10,24 +10,27 @@ use rdkafka::{
     message::OwnedMessage,
     ClientConfig, Message,
 };
+use reqwest::StatusCode;
 use schema_registry_converter::{
     async_impl::{avro::AvroDecoder, schema_registry::SrSettings},
     avro_common::DecodeResult,
 };
+use tracing::{Instrument, Level};
 use uuid::Uuid;
 
 use crate::{
-    database::PgPool,
-    error::MqaError,
-    json_conversion::convert_scores,
+    error::Error,
+    json_conversion::{convert_scores, UpdateRequest},
     measurement_graph::MeasurementGraph,
-    models::{Dataset, Dimension},
     schemas::MQAEvent,
     score::calculate_score,
     score_graph::ScoreGraph,
 };
 
 lazy_static! {
+    pub static ref SCORING_API_URL: String =
+        env::var("SCORING_API_URL").unwrap_or("localhost:8080".to_string());
+    pub static ref SCORING_API_KEY: String = env::var("API_KEY").unwrap_or_default();
     pub static ref BROKERS: String = env::var("BROKERS").unwrap_or("localhost:9092".to_string());
     pub static ref SCHEMA_REGISTRY: String =
         env::var("SCHEMA_REGISTRY").unwrap_or("http://localhost:8081".to_string());
@@ -52,22 +55,39 @@ pub fn create_consumer() -> Result<StreamConsumer, KafkaError> {
     Ok(consumer)
 }
 
-pub async fn run_async_processor(sr_settings: SrSettings, pool: PgPool) -> Result<(), MqaError> {
+pub async fn run_async_processor(worker_id: usize, sr_settings: SrSettings) -> Result<(), Error> {
+    tracing::info!(worker_id, "starting worker");
     let consumer: StreamConsumer = create_consumer()?;
 
+    tracing::info!(worker_id, "listening for messages");
     consumer
         .stream()
         .try_for_each(|borrowed_message| {
             let sr_settings = sr_settings.clone();
-            let pool = pool.clone();
+
+            let message = borrowed_message.detach();
+            let span = tracing::span!(
+                Level::INFO,
+                "received_message",
+                topic = message.topic(),
+                partition = message.partition(),
+                offset = message.offset(),
+                timestamp = message.timestamp().to_millis(),
+            );
+
             async move {
-                let message = borrowed_message.detach();
-                tokio::spawn(async move {
-                    match handle_message(message, sr_settings, pool).await {
-                        Ok(_) => println!("ok"),
-                        Err(e) => println!("Error: {:?}", e),
-                    };
-                });
+                tokio::spawn(
+                    async move {
+                        match handle_message(message, sr_settings).await {
+                            Ok(_) => tracing::info!("message handeled successfully"),
+                            Err(e) => tracing::error!(
+                                error = e.to_string().as_str(),
+                                "failed while handling message"
+                            ),
+                        };
+                    }
+                    .instrument(span),
+                );
                 Ok(())
             }
         })
@@ -79,7 +99,7 @@ pub async fn run_async_processor(sr_settings: SrSettings, pool: PgPool) -> Resul
 async fn parse_event(
     msg: OwnedMessage,
     mut decoder: AvroDecoder<'_>,
-) -> Result<Option<MQAEvent>, MqaError> {
+) -> Result<Option<MQAEvent>, Error> {
     match decoder.decode(msg.payload()).await {
         Ok(DecodeResult {
             name:
@@ -97,22 +117,32 @@ async fn parse_event(
     }
 }
 
-pub async fn handle_message(
-    message: OwnedMessage,
-    sr_settings: SrSettings,
-    pool: PgPool,
-) -> Result<(), MqaError> {
+pub async fn handle_message(message: OwnedMessage, sr_settings: SrSettings) -> Result<(), Error> {
     let decoder = AvroDecoder::new(sr_settings);
     if let Some(event) = parse_event(message, decoder).await? {
-        tokio::task::spawn_blocking(|| handle_event(event, pool))
-            .await
-            .map_err(|e| e.to_string())?
-            .await?;
+        let span = tracing::span!(
+            Level::INFO,
+            "parsed_event",
+            fdk_id = event.fdk_id.as_str(),
+            event_type = format!("{:?}", event.event_type).as_str(),
+        );
+
+        tokio::task::spawn_blocking(move || {
+            let _enter = span.enter();
+            handle_event(event)
+        })
+        .await
+        .map_err(|e| e.to_string())?
+        .await?;
+    } else {
+        tracing::info!("skipping event");
     }
     Ok(())
 }
 
-async fn handle_event(event: MQAEvent, pool: PgPool) -> Result<(), MqaError> {
+async fn handle_event(event: MQAEvent) -> Result<(), Error> {
+    tracing::info!("handling event");
+
     // TODO: load one per worker and pass metrics_scores to `handle_event`
     let score_graph = ScoreGraph::new()?;
     let score_definitions = score_graph.scores()?;
@@ -123,8 +153,8 @@ async fn handle_event(event: MQAEvent, pool: PgPool) -> Result<(), MqaError> {
     let fdk_id = Uuid::parse_str(event.fdk_id.as_str())
         .map_err(|e| format!("unable to parse FDK ID: {e}"))?;
 
-    let mut conn = pool.get()?;
-    if let Some(graph) = conn.get_score_graph_by_id(fdk_id)? {
+    let client = reqwest::Client::new();
+    if let Some(graph) = get_graph(&client, &fdk_id).await? {
         measurement_graph.load(graph)?;
     }
 
@@ -135,23 +165,60 @@ async fn handle_event(event: MQAEvent, pool: PgPool) -> Result<(), MqaError> {
     measurement_graph.insert_scores(&vec![dataset_score])?;
     measurement_graph.insert_scores(&distribution_scores)?;
 
-    let graph = Dataset {
-        id: fdk_id.to_string(),
-        publisher_id: "TODO: publisher id".to_string(), // TODO: fetch from kafka message
-        title: "TODO: dataset tile".to_string(),        // TODO: fetch from kafka message
-        score_graph: measurement_graph.to_string()?,
-        score_json: serde_json::to_string(&scores)?,
-    };
-    conn.store_dataset(graph)?;
+    tracing::info!("posting scores");
+    post_scores(
+        &client,
+        &fdk_id,
+        UpdateRequest {
+            scores: scores,
+            graph: measurement_graph.to_string()?,
+        },
+    )
+    .await
+}
 
-    for dimension in scores.dataset.dimensions {
-        conn.store_dimension(Dimension {
-            dataset_id: fdk_id.to_string(),
-            title: dimension.name,
-            score: dimension.score as i32,
-            max_score: dimension.max_score as i32,
-        })?;
+async fn get_graph(client: &reqwest::Client, fdk_id: &Uuid) -> Result<Option<String>, Error> {
+    let response = client
+        .get(format!("{}/api/scores/{fdk_id}", SCORING_API_URL.clone()))
+        .header("Accept", "text/turtle")
+        .send()
+        .await?;
+
+    match response.status() {
+        StatusCode::NOT_FOUND => Ok(None),
+        StatusCode::OK => Ok(Some(response.text().await?)),
+        _ => Err(format!(
+            "Invalid response from scoring api: {} - {}",
+            response.status(),
+            response.text().await?
+        )
+        .into()),
     }
+}
 
-    Ok(())
+async fn post_scores(
+    client: &reqwest::Client,
+    fdk_id: &Uuid,
+    update: UpdateRequest,
+) -> Result<(), Error> {
+    let response = client
+        .post(format!(
+            "{}/api/scores/{fdk_id}/update",
+            SCORING_API_URL.clone()
+        ))
+        .header("X-API-KEY", SCORING_API_KEY.clone())
+        .json(&update)
+        .send()
+        .await?;
+
+    if response.status() == StatusCode::ACCEPTED {
+        Ok(())
+    } else {
+        Err(format!(
+            "Invalid response from scoring api: {} - {}",
+            response.status(),
+            response.text().await?
+        )
+        .into())
+    }
 }

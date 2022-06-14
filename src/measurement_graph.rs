@@ -10,7 +10,7 @@ use oxigraph::{
 };
 
 use crate::{
-    error::MqaError,
+    error::Error,
     helpers::{execute_query, named_quad_subject},
     measurement_value::MeasurementValue,
     score::{DimensionScore, MetricScore, Score},
@@ -21,13 +21,13 @@ pub struct MeasurementGraph(oxigraph::store::Store);
 
 impl MeasurementGraph {
     /// Creates new measurement graph.
-    pub fn new() -> Result<Self, MqaError> {
+    pub fn new() -> Result<Self, Error> {
         let store = Store::new()?;
         Ok(Self(store))
     }
 
     /// Loads graph from string.
-    pub fn load<G: ToString>(&mut self, graph: G) -> Result<(), MqaError> {
+    pub fn load<G: ToString>(&mut self, graph: G) -> Result<(), Error> {
         self.0.load_graph(
             graph.to_string().as_ref(),
             GraphFormat::Turtle,
@@ -38,7 +38,7 @@ impl MeasurementGraph {
     }
 
     /// Retrieves all named dataset nodes.
-    pub fn dataset(&self) -> Result<NamedNode, MqaError> {
+    pub fn dataset(&self) -> Result<NamedNode, Error> {
         self.0
             .quads_for_pattern(
                 None,
@@ -52,7 +52,7 @@ impl MeasurementGraph {
     }
 
     /// Retrieves all named distribution nodes.
-    pub fn distributions(&self) -> Result<Vec<NamedNode>, MqaError> {
+    pub fn distributions(&self) -> Result<Vec<NamedNode>, Error> {
         let mut distributions = self
             .0
             .quads_for_pattern(
@@ -62,7 +62,7 @@ impl MeasurementGraph {
                 None,
             )
             .map(named_quad_subject)
-            .collect::<Result<Vec<NamedNode>, MqaError>>()?;
+            .collect::<Result<Vec<NamedNode>, Error>>()?;
         distributions.sort();
         Ok(distributions)
     }
@@ -70,7 +70,7 @@ impl MeasurementGraph {
     /// Retrieves all quality measurements in a graph, as map: (node, metric) -> value.
     pub fn quality_measurements(
         &self,
-    ) -> Result<HashMap<(NamedNode, NamedNode), MeasurementValue>, MqaError> {
+    ) -> Result<HashMap<(NamedNode, NamedNode), MeasurementValue>, Error> {
         let query = format!(
             "
             SELECT ?node ?metric ?value
@@ -105,7 +105,7 @@ impl MeasurementGraph {
     }
 
     /// Inserts score into measurement graph.
-    pub fn insert_scores(&mut self, scores: &Vec<Score>) -> Result<(), MqaError> {
+    pub fn insert_scores(&mut self, scores: &Vec<Score>) -> Result<(), Error> {
         for Score {
             name: node,
             dimensions,
@@ -129,7 +129,7 @@ impl MeasurementGraph {
     }
 
     /// Insert total score of a node into graph.
-    fn insert_node_score(&mut self, node: NamedNodeRef, score: &u64) -> Result<(), MqaError> {
+    fn insert_node_score(&mut self, node: NamedNodeRef, score: &u64) -> Result<(), Error> {
         self.insert_measurement_property(node, dcat_mqa::SCORING, dqv::VALUE, score)
     }
 
@@ -139,7 +139,7 @@ impl MeasurementGraph {
         node: NamedNodeRef,
         dimension: NamedNodeRef,
         score: &u64,
-    ) -> Result<(), MqaError> {
+    ) -> Result<(), Error> {
         let metric = NamedNode::new(format!("{}Scoring", dimension.as_str()).as_str())?;
         self.insert_measurement_property(node, metric.as_ref(), dqv::VALUE, score)
     }
@@ -149,7 +149,7 @@ impl MeasurementGraph {
         &mut self,
         node: NamedNodeRef,
         metric: &MetricScore,
-    ) -> Result<(), MqaError> {
+    ) -> Result<(), Error> {
         self.insert_measurement_property(
             node,
             metric.name.as_ref(),
@@ -166,7 +166,7 @@ impl MeasurementGraph {
         metric: NamedNodeRef,
         property: NamedNodeRef,
         value: &u64,
-    ) -> Result<(), MqaError> {
+    ) -> Result<(), Error> {
         let measurement = match self.get_measurement(node, metric)? {
             Some(node) => node,
             None => self.insert_measurement(node, metric)?,
@@ -188,7 +188,7 @@ impl MeasurementGraph {
         &mut self,
         node: NamedNodeRef,
         metric: NamedNodeRef,
-    ) -> Result<Option<NamedOrBlankNode>, MqaError> {
+    ) -> Result<Option<NamedOrBlankNode>, Error> {
         let q = format!(
             "
                 SELECT ?measurement
@@ -223,7 +223,7 @@ impl MeasurementGraph {
         &mut self,
         node: NamedNodeRef,
         metric: NamedNodeRef,
-    ) -> Result<NamedOrBlankNode, MqaError> {
+    ) -> Result<NamedOrBlankNode, Error> {
         let measurement = BlankNode::default();
 
         self.0.insert(&Quad {
@@ -255,7 +255,7 @@ impl MeasurementGraph {
     }
 
     /// Dump graph to string.
-    pub fn to_string(&self) -> Result<String, MqaError> {
+    pub fn to_string(&self) -> Result<String, Error> {
         let mut buff = Cursor::new(Vec::new());
         self.0
             .dump_graph(&mut buff, GraphFormat::Turtle, GraphNameRef::DefaultGraph)?;
