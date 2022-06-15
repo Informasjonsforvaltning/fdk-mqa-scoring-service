@@ -16,7 +16,7 @@ pub struct Scores {
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub struct Score {
-    name: String,
+    id: String,
     dimensions: Vec<DimensionScore>,
     score: u64,
     max_score: u64,
@@ -24,7 +24,7 @@ pub struct Score {
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub struct DimensionScore {
-    name: String,
+    id: String,
     metrics: Vec<MetricScore>,
     score: u64,
     max_score: u64,
@@ -32,7 +32,7 @@ pub struct DimensionScore {
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub struct MetricScore {
-    metric: String,
+    id: String,
     score: u64,
     is_scored: bool,
     max_score: u64,
@@ -45,14 +45,14 @@ fn convert_score(score_definitions: &ScoreDefinitions, score: &score::Score) -> 
         .zip(score.dimensions.iter())
         .map(|(score_dimension, dimension_score)| DimensionScore {
             // .to_string() without .as_str() returns name wrapped in < >
-            name: dimension_score.name.as_str().to_string(),
+            id: dimension_score.id.as_str().to_string(),
             metrics: score_dimension
                 .metrics
                 .iter()
                 .zip(dimension_score.metrics.iter())
                 .map(|(score_metric, metric_score)| MetricScore {
                     // .to_string() without .as_str() returns name wrapped in < >
-                    metric: metric_score.name.as_str().to_string(),
+                    id: metric_score.id.as_str().to_string(),
                     score: metric_score.score.unwrap_or_default(),
                     is_scored: metric_score.score.is_some(),
                     max_score: score_metric.score,
@@ -64,7 +64,7 @@ fn convert_score(score_definitions: &ScoreDefinitions, score: &score::Score) -> 
         .collect();
 
     Score {
-        name: score.name.as_str().to_string(),
+        id: score.id.as_str().to_string(),
         dimensions,
         score: score.score,
         max_score: score_definitions.total_score,
@@ -112,19 +112,19 @@ mod tests {
 
         assert_eq!(scores, Scores {
             dataset: Score {
-                name: "https://dataset.foo".to_string(),
+                id: "https://dataset.foo".to_string(),
                 dimensions: vec![
                     DimensionScore {
-                        name: "https://data.norge.no/vocabulary/dcatno-mqa#accessibility".to_string(),
+                        id: "https://data.norge.no/vocabulary/dcatno-mqa#accessibility".to_string(),
                         metrics: vec![
                             MetricScore {
-                                metric: "https://data.norge.no/vocabulary/dcatno-mqa#accessUrlStatusCode".to_string(),
+                                id: "https://data.norge.no/vocabulary/dcatno-mqa#accessUrlStatusCode".to_string(),
                                 score: 50,
                                 is_scored: true,
                                 max_score: 50,
                             },
                             MetricScore {
-                                metric: "https://data.norge.no/vocabulary/dcatno-mqa#downloadUrlAvailability".to_string(),
+                                id: "https://data.norge.no/vocabulary/dcatno-mqa#downloadUrlAvailability".to_string(),
                                 score: 20,
                                 is_scored: true,
                                 max_score: 20,
@@ -134,10 +134,10 @@ mod tests {
                         max_score: 70,
                     },
                     DimensionScore {
-                        name: "https://data.norge.no/vocabulary/dcatno-mqa#interoperability".to_string(),
+                        id: "https://data.norge.no/vocabulary/dcatno-mqa#interoperability".to_string(),
                         metrics: vec![
                             MetricScore {
-                                metric: "https://data.norge.no/vocabulary/dcatno-mqa#formatAvailability".to_string(),
+                                id: "https://data.norge.no/vocabulary/dcatno-mqa#formatAvailability".to_string(),
                                 score: 0,
                                 is_scored: true,
                                 max_score: 20,
@@ -152,19 +152,19 @@ mod tests {
             },
             distributions: vec![
                 Score {
-                    name: "https://distribution.a".to_string(),
+                    id: "https://distribution.a".to_string(),
                     dimensions: vec![
                         DimensionScore {
-                            name: "https://data.norge.no/vocabulary/dcatno-mqa#accessibility".to_string(),
+                            id: "https://data.norge.no/vocabulary/dcatno-mqa#accessibility".to_string(),
                             metrics: vec![
                                 MetricScore {
-                                    metric: "https://data.norge.no/vocabulary/dcatno-mqa#accessUrlStatusCode".to_string(),
+                                    id: "https://data.norge.no/vocabulary/dcatno-mqa#accessUrlStatusCode".to_string(),
                                     score: 50,
                                     is_scored: true,
                                     max_score: 50,
                                 },
                                 MetricScore {
-                                    metric: "https://data.norge.no/vocabulary/dcatno-mqa#downloadUrlAvailability".to_string(),
+                                    id: "https://data.norge.no/vocabulary/dcatno-mqa#downloadUrlAvailability".to_string(),
                                     score: 0,
                                     is_scored: false,
                                     max_score: 20,
@@ -174,10 +174,10 @@ mod tests {
                             max_score: 70,
                         },
                         DimensionScore {
-                            name: "https://data.norge.no/vocabulary/dcatno-mqa#interoperability".to_string(),
+                            id: "https://data.norge.no/vocabulary/dcatno-mqa#interoperability".to_string(),
                             metrics: vec![
                                 MetricScore {
-                                    metric: "https://data.norge.no/vocabulary/dcatno-mqa#formatAvailability".to_string(),
+                                    id: "https://data.norge.no/vocabulary/dcatno-mqa#formatAvailability".to_string(),
                                     score: 0,
                                     is_scored: true,
                                     max_score: 20,
@@ -191,19 +191,19 @@ mod tests {
                     max_score: 90,
                 },
                 Score {
-                    name: "https://distribution.b".to_string(),
+                    id: "https://distribution.b".to_string(),
                     dimensions: vec![
                         DimensionScore {
-                            name: "https://data.norge.no/vocabulary/dcatno-mqa#accessibility".to_string(),
+                            id: "https://data.norge.no/vocabulary/dcatno-mqa#accessibility".to_string(),
                             metrics: vec![
                                 MetricScore {
-                                    metric: "https://data.norge.no/vocabulary/dcatno-mqa#accessUrlStatusCode".to_string(),
+                                    id: "https://data.norge.no/vocabulary/dcatno-mqa#accessUrlStatusCode".to_string(),
                                     score: 0,
                                     is_scored: false,
                                     max_score: 50,
                                 },
                                 MetricScore {
-                                    metric: "https://data.norge.no/vocabulary/dcatno-mqa#downloadUrlAvailability".to_string(),
+                                    id: "https://data.norge.no/vocabulary/dcatno-mqa#downloadUrlAvailability".to_string(),
                                     score: 0,
                                     is_scored: false,
                                     max_score: 20,
@@ -213,10 +213,10 @@ mod tests {
                             max_score: 70,
                         },
                         DimensionScore {
-                            name: "https://data.norge.no/vocabulary/dcatno-mqa#interoperability".to_string(),
+                            id: "https://data.norge.no/vocabulary/dcatno-mqa#interoperability".to_string(),
                             metrics: vec![
                                 MetricScore {
-                                    metric: "https://data.norge.no/vocabulary/dcatno-mqa#formatAvailability".to_string(),
+                                    id: "https://data.norge.no/vocabulary/dcatno-mqa#formatAvailability".to_string(),
                                     score: 20,
                                     is_scored: true,
                                     max_score: 20,

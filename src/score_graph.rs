@@ -22,14 +22,14 @@ pub struct ScoreDefinitions {
 
 #[derive(Debug, PartialEq)]
 pub struct ScoreDimension {
-    pub name: NamedNode,
+    pub id: NamedNode,
     pub metrics: Vec<ScoreMetric>,
     pub total_score: u64,
 }
 
 #[derive(Debug, PartialEq)]
 pub struct ScoreMetric {
-    pub name: NamedNode,
+    pub id: NamedNode,
     pub score: u64,
 }
 
@@ -48,7 +48,7 @@ impl ScoreGraph {
                 let metrics = self.metrics(name.as_ref())?;
                 let total_score = metrics.iter().map(|metric| metric.score).sum();
                 Ok(ScoreDimension {
-                    name,
+                    id: name,
                     metrics,
                     total_score,
                 })
@@ -111,7 +111,7 @@ impl ScoreGraph {
                     }),
                     _ => Err("unable to read metric score from score graph".into()),
                 }?;
-                Ok(ScoreMetric { name, score })
+                Ok(ScoreMetric { id: name, score })
             })
             .collect()
     }
@@ -123,19 +123,19 @@ impl ScoreMetric {
         use crate::vocab::dcat_mqa::*;
         use MeasurementValue::*;
 
-        let ok = match self.name.as_ref() {
+        let ok = match self.id.as_ref() {
             ACCESS_URL_STATUS_CODE | DOWNLOAD_URL_STATUS_CODE => match value {
                 Int(code) => Ok(200 <= code.clone() && code.clone() < 300),
                 _ => Err(format!(
                     "measurement '{}' must be of type int: '{:?}'",
-                    self.name, value
+                    self.id, value
                 )),
             },
             _ => match value {
                 Bool(bool) => Ok(bool.clone()),
                 _ => Err(format!(
                     "measurement '{}' must be of type bool: '{:?}'",
-                    self.name, value
+                    self.id, value
                 )),
             },
         }?;
@@ -170,23 +170,23 @@ mod tests {
             ScoreDefinitions {
                 dimensions: vec![
                     ScoreDimension {
-                        name: mqa_node("accessibility"),
+                        id: mqa_node("accessibility"),
                         metrics: vec![
                             ScoreMetric {
-                                name: mqa_node("accessUrlStatusCode"),
+                                id: mqa_node("accessUrlStatusCode"),
                                 score: 50
                             },
                             ScoreMetric {
-                                name: mqa_node("downloadUrlAvailability"),
+                                id: mqa_node("downloadUrlAvailability"),
                                 score: 20
                             },
                         ],
                         total_score: 70,
                     },
                     ScoreDimension {
-                        name: mqa_node("interoperability"),
+                        id: mqa_node("interoperability"),
                         metrics: vec![ScoreMetric {
-                            name: mqa_node("formatAvailability"),
+                            id: mqa_node("formatAvailability"),
                             score: 20
                         }],
                         total_score: 20,
@@ -206,7 +206,7 @@ mod tests {
     fn url_int_measurement() {
         assert_eq!(
             ScoreMetric {
-                name: NamedNode::new_unchecked(ACCESS_URL_STATUS_CODE.as_str()),
+                id: NamedNode::new_unchecked(ACCESS_URL_STATUS_CODE.as_str()),
                 score: 20,
             }
             .score(&MeasurementValue::Int(200))
@@ -218,7 +218,7 @@ mod tests {
     #[test]
     fn url_bool_measurement() {
         assert!(ScoreMetric {
-            name: NamedNode::new_unchecked(DOWNLOAD_URL_STATUS_CODE.as_str()),
+            id: NamedNode::new_unchecked(DOWNLOAD_URL_STATUS_CODE.as_str()),
             score: 20
         }
         .score(&MeasurementValue::Bool(true))
@@ -228,7 +228,7 @@ mod tests {
     #[test]
     fn bool_measurements() {
         assert!(ScoreMetric {
-            name: NamedNode::new_unchecked(""),
+            id: NamedNode::new_unchecked(""),
             score: 10
         }
         .score(&MeasurementValue::Int(10))
@@ -236,7 +236,7 @@ mod tests {
 
         assert_eq!(
             ScoreMetric {
-                name: NamedNode::new_unchecked(""),
+                id: NamedNode::new_unchecked(""),
                 score: 10
             }
             .score(&MeasurementValue::Bool(true))
@@ -245,7 +245,7 @@ mod tests {
         );
         assert_eq!(
             ScoreMetric {
-                name: NamedNode::new_unchecked(""),
+                id: NamedNode::new_unchecked(""),
                 score: 10
             }
             .score(&MeasurementValue::Bool(false))

@@ -10,21 +10,21 @@ use crate::{
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Score {
-    pub name: NamedNode,
+    pub id: NamedNode,
     pub dimensions: Vec<DimensionScore>,
     pub score: u64,
 }
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct DimensionScore {
-    pub name: NamedNode,
+    pub id: NamedNode,
     pub metrics: Vec<MetricScore>,
     pub score: u64,
 }
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct MetricScore {
-    pub name: NamedNode,
+    pub id: NamedNode,
     pub score: Option<u64>,
 }
 
@@ -63,7 +63,7 @@ pub fn calculate_score(
                 distribution.as_ref(),
             )?;
             Ok(Score {
-                name: distribution.clone(),
+                id: distribution.clone(),
                 score: sum_dimensions(&dimensions),
                 dimensions,
             })
@@ -75,7 +75,7 @@ pub fn calculate_score(
         .map(|score| {
             let dimensions = merge_dimension_scores(score.dimensions.clone(), &dataset_dimensions);
             Score {
-                name: score.name.clone(),
+                id: score.id.clone(),
                 score: sum_dimensions(&dimensions),
                 dimensions,
             }
@@ -91,7 +91,7 @@ pub fn calculate_score(
 
     Ok((
         Score {
-            name: dataset_name,
+            id: dataset_name,
             dimensions: dataset_dimensions,
             score: dataset_total_score,
         },
@@ -114,12 +114,12 @@ fn merge_dimension_scores(
                 .into_iter()
                 .zip(other.metrics.iter())
                 .map(|(metric, other)| MetricScore {
-                    name: metric.name,
+                    id: metric.id,
                     score: metric.score.max(other.score.clone()),
                 })
                 .collect();
             DimensionScore {
-                name: dimension.name,
+                id: dimension.id,
                 score: sum_metrics(&metrics),
                 metrics,
             }
@@ -141,13 +141,13 @@ fn node_dimension_scores(
     score_definitions
         .dimensions
         .iter()
-        .map(|ScoreDimension { name, metrics, .. }| {
+        .map(|ScoreDimension { id, metrics, .. }| {
             let metrics = metrics
                 .iter()
                 .map(|metric| {
                     Ok(MetricScore {
-                        name: metric.name.clone(),
-                        score: match graph_measurements.get(&(node.into(), metric.name.clone())) {
+                        id: metric.id.clone(),
+                        score: match graph_measurements.get(&(node.into(), metric.id.clone())) {
                             Some(val) => Some(metric.score(val)?),
                             None => None,
                         },
@@ -155,7 +155,7 @@ fn node_dimension_scores(
                 })
                 .collect::<Result<_, Error>>()?;
             Ok(DimensionScore {
-                name: name.clone(),
+                id: id.clone(),
                 score: sum_metrics(&metrics),
                 metrics,
             })
@@ -186,26 +186,26 @@ mod tests {
         assert_eq!(
             dataset_score,
             Score {
-                name: node("https://dataset.foo"),
+                id: node("https://dataset.foo"),
                 dimensions: vec![
                     DimensionScore {
-                        name: mqa_node("accessibility"),
+                        id: mqa_node("accessibility"),
                         metrics: vec![
                             MetricScore {
-                                name: mqa_node("accessUrlStatusCode"),
+                                id: mqa_node("accessUrlStatusCode"),
                                 score: Some(50)
                             },
                             MetricScore {
-                                name: mqa_node("downloadUrlAvailability"),
+                                id: mqa_node("downloadUrlAvailability"),
                                 score: Some(20),
                             },
                         ],
                         score: 70,
                     },
                     DimensionScore {
-                        name: mqa_node("interoperability"),
+                        id: mqa_node("interoperability"),
                         metrics: vec![MetricScore {
-                            name: mqa_node("formatAvailability"),
+                            id: mqa_node("formatAvailability"),
                             score: Some(0)
                         }],
                         score: 0
@@ -216,26 +216,26 @@ mod tests {
         );
 
         let a = Score {
-            name: node("https://distribution.a"),
+            id: node("https://distribution.a"),
             dimensions: vec![
                 DimensionScore {
-                    name: mqa_node("accessibility"),
+                    id: mqa_node("accessibility"),
                     metrics: vec![
                         MetricScore {
-                            name: mqa_node("accessUrlStatusCode"),
+                            id: mqa_node("accessUrlStatusCode"),
                             score: Some(50),
                         },
                         MetricScore {
-                            name: mqa_node("downloadUrlAvailability"),
+                            id: mqa_node("downloadUrlAvailability"),
                             score: None,
                         },
                     ],
                     score: 50,
                 },
                 DimensionScore {
-                    name: mqa_node("interoperability"),
+                    id: mqa_node("interoperability"),
                     metrics: vec![MetricScore {
-                        name: mqa_node("formatAvailability"),
+                        id: mqa_node("formatAvailability"),
                         score: Some(0),
                     }],
                     score: 0,
@@ -244,26 +244,26 @@ mod tests {
             score: 50,
         };
         let b = Score {
-            name: node("https://distribution.b"),
+            id: node("https://distribution.b"),
             dimensions: vec![
                 DimensionScore {
-                    name: mqa_node("accessibility"),
+                    id: mqa_node("accessibility"),
                     metrics: vec![
                         MetricScore {
-                            name: mqa_node("accessUrlStatusCode"),
+                            id: mqa_node("accessUrlStatusCode"),
                             score: None,
                         },
                         MetricScore {
-                            name: mqa_node("downloadUrlAvailability"),
+                            id: mqa_node("downloadUrlAvailability"),
                             score: None,
                         },
                     ],
                     score: 0,
                 },
                 DimensionScore {
-                    name: mqa_node("interoperability"),
+                    id: mqa_node("interoperability"),
                     metrics: vec![MetricScore {
-                        name: mqa_node("formatAvailability"),
+                        id: mqa_node("formatAvailability"),
                         score: Some(20),
                     }],
                     score: 20,

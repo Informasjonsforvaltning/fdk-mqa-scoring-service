@@ -107,14 +107,14 @@ impl MeasurementGraph {
     /// Inserts score into measurement graph.
     pub fn insert_scores(&mut self, scores: &Vec<Score>) -> Result<(), Error> {
         for Score {
-            name: node,
+            id: node,
             dimensions,
             score: total_score,
         } in scores
         {
             self.insert_node_score(node.as_ref(), total_score)?;
             for DimensionScore {
-                name,
+                id: name,
                 metrics,
                 score: total_score,
             } in dimensions
@@ -152,7 +152,7 @@ impl MeasurementGraph {
     ) -> Result<(), Error> {
         self.insert_measurement_property(
             node,
-            metric.name.as_ref(),
+            metric.id.as_ref(),
             dcat_mqa::SCORE,
             &metric.score.unwrap_or_default(),
         )
