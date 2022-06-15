@@ -1,6 +1,6 @@
 use oxigraph::model::{vocab::xsd, Literal};
 
-use crate::error::MqaError;
+use crate::error::Error;
 
 #[derive(Debug, PartialEq)]
 pub enum MeasurementValue {
@@ -11,7 +11,7 @@ pub enum MeasurementValue {
 }
 
 impl TryFrom<Literal> for MeasurementValue {
-    type Error = MqaError;
+    type Error = Error;
 
     /// Try to parse quality measurement value from graph store literal.
     fn try_from(value: Literal) -> Result<Self, Self::Error> {

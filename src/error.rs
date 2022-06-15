@@ -5,10 +5,8 @@ use oxigraph::{
 };
 use thiserror::Error;
 
-use crate::database;
-
 #[derive(Error, Debug)]
-pub enum MqaError {
+pub enum Error {
     #[error(transparent)]
     LoaderError(#[from] LoaderError),
     #[error(transparent)]
@@ -22,24 +20,26 @@ pub enum MqaError {
     #[error(transparent)]
     SerializerError(#[from] SerializerError),
     #[error(transparent)]
+    SerdeError(#[from] serde_json::Error),
+    #[error(transparent)]
     RegexError(#[from] regex::Error),
     #[error(transparent)]
     KafkaError(#[from] rdkafka::error::KafkaError),
     #[error(transparent)]
-    SRCError(#[from] schema_registry_converter::error::SRCError),
+    ReqwestError(#[from] reqwest::Error),
     #[error(transparent)]
-    DatabaseError(#[from] database::DatabaseError),
+    SRCError(#[from] schema_registry_converter::error::SRCError),
     #[error("{0}")]
     String(String),
 }
 
-impl From<&str> for MqaError {
+impl From<&str> for Error {
     fn from(e: &str) -> Self {
         Self::String(e.to_string())
     }
 }
 
-impl From<String> for MqaError {
+impl From<String> for Error {
     fn from(e: String) -> Self {
         Self::String(e)
     }

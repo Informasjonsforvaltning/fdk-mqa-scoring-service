@@ -2,121 +2,163 @@ use oxigraph::model::{NamedNode, NamedNodeRef};
 use std::collections::HashMap;
 
 use crate::{
-    error::MqaError, measurement_graph::MeasurementGraph, measurement_value::MeasurementValue,
+    error::Error,
+    measurement_graph::MeasurementGraph,
+    measurement_value::MeasurementValue,
+    score_graph::{ScoreDefinitions, ScoreDimension},
 };
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct Score(pub NamedNode, pub Vec<DimensionScore>);
+pub struct Score {
+    pub id: NamedNode,
+    pub dimensions: Vec<DimensionScore>,
+    pub score: u64,
+}
+
 #[derive(Clone, Debug, PartialEq)]
-pub struct DimensionScore(pub NamedNode, pub Vec<MetricScore>);
+pub struct DimensionScore {
+    pub id: NamedNode,
+    pub metrics: Vec<MetricScore>,
+    pub score: u64,
+}
+
 #[derive(Clone, Debug, PartialEq)]
-pub struct MetricScore(pub NamedNode, pub Option<u64>);
+pub struct MetricScore {
+    pub id: NamedNode,
+    pub score: Option<u64>,
+}
+
+fn sum_dimensions(dimensions: &Vec<DimensionScore>) -> u64 {
+    dimensions.iter().map(|dimension| dimension.score).sum()
+}
+
+fn sum_metrics(metrics: &Vec<MetricScore>) -> u64 {
+    metrics
+        .iter()
+        .map(|metric| metric.score.unwrap_or_default())
+        .sum()
+}
 
 /// Calculates score for all metrics in all dimensions, for all distributions.
 pub fn calculate_score(
     measurement_graph: &MeasurementGraph,
-    scores: &Vec<crate::score_graph::Dimension>,
-) -> Result<(Score, Vec<Score>), MqaError> {
+    score_definitions: &ScoreDefinitions,
+) -> Result<(Score, Vec<Score>), Error> {
     let graph_measurements = measurement_graph.quality_measurements()?;
 
-    let dataset = measurement_graph.dataset()?;
-    let dataset_score = node_score(scores, &graph_measurements, dataset.as_ref())?;
+    let dataset_name = measurement_graph.dataset()?;
+    let dataset_dimensions = node_dimension_scores(
+        score_definitions,
+        &graph_measurements,
+        dataset_name.as_ref(),
+    )?;
 
     let distributions = measurement_graph.distributions()?;
     let distribution_scores: Vec<Score> = distributions
         .into_iter()
         .map(|distribution| {
-            Ok(Score(
-                distribution.clone(),
-                node_score(scores, &graph_measurements, distribution.as_ref())?,
-            ))
+            let dimensions = node_dimension_scores(
+                score_definitions,
+                &graph_measurements,
+                distribution.as_ref(),
+            )?;
+            Ok(Score {
+                id: distribution.clone(),
+                score: sum_dimensions(&dimensions),
+                dimensions,
+            })
         })
-        .collect::<Result<_, MqaError>>()?;
+        .collect::<Result<_, Error>>()?;
 
     let dataset_merged_distribution_scores: Vec<Score> = distribution_scores
         .iter()
-        .map(|Score(distribution, score)| {
-            Score(
-                distribution.clone(),
-                merge_scores(score.clone(), &dataset_score),
-            )
+        .map(|score| {
+            let dimensions = merge_dimension_scores(score.dimensions.clone(), &dataset_dimensions);
+            Score {
+                id: score.id.clone(),
+                score: sum_dimensions(&dimensions),
+                dimensions,
+            }
         })
         .collect();
 
-    let dataset_score = best_score(dataset_merged_distribution_scores)
-        .map(|Score(_, score)| score)
-        .unwrap_or(dataset_score);
+    let (dataset_total_score, dataset_dimensions) =
+        if let Some(best) = best_score(dataset_merged_distribution_scores) {
+            (best.score, best.dimensions)
+        } else {
+            (sum_dimensions(&dataset_dimensions), dataset_dimensions)
+        };
 
-    Ok((Score(dataset, dataset_score), distribution_scores))
+    Ok((
+        Score {
+            id: dataset_name,
+            dimensions: dataset_dimensions,
+            score: dataset_total_score,
+        },
+        distribution_scores,
+    ))
 }
 
-// Merges two distribution scores by taking the max value of each metric.
+// Merges two node scores by taking the max value of each metric.
 // NOTE: both inputs MUST be of same size have equal dimension/metric order.
-fn merge_scores(score: Vec<DimensionScore>, other: &Vec<DimensionScore>) -> Vec<DimensionScore> {
-    score
+fn merge_dimension_scores(
+    dimensions: Vec<DimensionScore>,
+    other: &Vec<DimensionScore>,
+) -> Vec<DimensionScore> {
+    dimensions
         .into_iter()
         .zip(other)
-        .map(
-            |(DimensionScore(dimension, scores), DimensionScore(_, other_scores))| {
-                DimensionScore(
-                    dimension,
-                    scores
-                        .into_iter()
-                        .zip(other_scores)
-                        .map(
-                            |(MetricScore(metric, value), MetricScore(_, other_value))| {
-                                MetricScore(metric, value.max(other_value.clone()))
-                            },
-                        )
-                        .collect(),
-                )
-            },
-        )
+        .map(|(dimension, other)| {
+            let metrics = dimension
+                .metrics
+                .into_iter()
+                .zip(other.metrics.iter())
+                .map(|(metric, other)| MetricScore {
+                    id: metric.id,
+                    score: metric.score.max(other.score.clone()),
+                })
+                .collect();
+            DimensionScore {
+                id: dimension.id,
+                score: sum_metrics(&metrics),
+                metrics,
+            }
+        })
         .collect()
 }
 
 // Find best scoring distribution.
 pub fn best_score(scores: Vec<Score>) -> Option<Score> {
-    scores
-        .iter()
-        .max_by_key::<u64, _>(|Score(_, dimensions)| {
-            dimensions
-                .iter()
-                .map::<u64, _>(|DimensionScore(_, metrics)| {
-                    metrics
-                        .iter()
-                        .map(|MetricScore(_, value)| value.unwrap_or(0))
-                        .sum()
-                })
-                .sum()
-        })
-        .map(|best| best.clone())
+    scores.into_iter().max_by_key::<u64, _>(|score| score.score)
 }
 
 /// Calculates score for all metrics in all dimensions, for a distribution or dataset node.
-fn node_score(
-    dimension_scores: &Vec<crate::score_graph::Dimension>,
+fn node_dimension_scores(
+    score_definitions: &ScoreDefinitions,
     graph_measurements: &HashMap<(NamedNode, NamedNode), MeasurementValue>,
     node: NamedNodeRef,
-) -> Result<Vec<DimensionScore>, MqaError> {
-    dimension_scores
+) -> Result<Vec<DimensionScore>, Error> {
+    score_definitions
+        .dimensions
         .iter()
-        .map(|(dimension, metrics_scores)| {
-            Ok(DimensionScore(
-                dimension.clone(),
-                metrics_scores
-                    .iter()
-                    .map(|metric| {
-                        Ok(MetricScore(
-                            metric.0.clone(),
-                            match graph_measurements.get(&(node.into(), metric.0.clone())) {
-                                Some(val) => Some(metric.score(val)?),
-                                None => None,
-                            },
-                        ))
+        .map(|ScoreDimension { id, metrics, .. }| {
+            let metrics = metrics
+                .iter()
+                .map(|metric| {
+                    Ok(MetricScore {
+                        id: metric.id.clone(),
+                        score: match graph_measurements.get(&(node.into(), metric.id.clone())) {
+                            Some(val) => Some(metric.score(val)?),
+                            None => None,
+                        },
                     })
-                    .collect::<Result<_, MqaError>>()?,
-            ))
+                })
+                .collect::<Result<_, Error>>()?;
+            Ok(DimensionScore {
+                id: id.clone(),
+                score: sum_metrics(&metrics),
+                metrics,
+            })
         })
         .collect()
 }
@@ -132,67 +174,104 @@ mod tests {
 
     #[test]
     fn score_measurements() {
-        let mut measurement_graph = MeasurementGraph::new().unwrap();
-        measurement_graph.load(MEASUREMENT_GRAPH).unwrap();
-        let metric_scores = ScoreGraph(parse_graphs(vec![METRIC_GRAPH, SCORE_GRAPH]).unwrap())
+        let score_definitions = ScoreGraph(parse_graphs(vec![METRIC_GRAPH, SCORE_GRAPH]).unwrap())
             .scores()
             .unwrap();
+
+        let mut measurement_graph = MeasurementGraph::new().unwrap();
+        measurement_graph.load(MEASUREMENT_GRAPH).unwrap();
         let (dataset_score, distribution_scores) =
-            calculate_score(&measurement_graph, &metric_scores).unwrap();
+            calculate_score(&measurement_graph, &score_definitions).unwrap();
 
         assert_eq!(
             dataset_score,
-            Score(
-                node("https://dataset.foo"),
-                vec![
-                    DimensionScore(
-                        mqa_node("interoperability"),
-                        vec![MetricScore(mqa_node("formatAvailability"), Some(0))],
-                    ),
-                    DimensionScore(
-                        mqa_node("accessibility"),
-                        vec![
-                            MetricScore(mqa_node("downloadUrlAvailability"), Some(20)),
-                            MetricScore(mqa_node("accessUrlStatusCode"), Some(50)),
+            Score {
+                id: node("https://dataset.foo"),
+                dimensions: vec![
+                    DimensionScore {
+                        id: mqa_node("accessibility"),
+                        metrics: vec![
+                            MetricScore {
+                                id: mqa_node("accessUrlStatusCode"),
+                                score: Some(50)
+                            },
+                            MetricScore {
+                                id: mqa_node("downloadUrlAvailability"),
+                                score: Some(20),
+                            },
                         ],
-                    ),
+                        score: 70,
+                    },
+                    DimensionScore {
+                        id: mqa_node("interoperability"),
+                        metrics: vec![MetricScore {
+                            id: mqa_node("formatAvailability"),
+                            score: Some(0)
+                        }],
+                        score: 0
+                    },
                 ],
-            )
+                score: 70,
+            }
         );
 
-        let a = Score(
-            node("https://distribution.a"),
-            vec![
-                DimensionScore(
-                    mqa_node("interoperability"),
-                    vec![MetricScore(mqa_node("formatAvailability"), Some(0))],
-                ),
-                DimensionScore(
-                    mqa_node("accessibility"),
-                    vec![
-                        MetricScore(mqa_node("downloadUrlAvailability"), None),
-                        MetricScore(mqa_node("accessUrlStatusCode"), Some(50)),
+        let a = Score {
+            id: node("https://distribution.a"),
+            dimensions: vec![
+                DimensionScore {
+                    id: mqa_node("accessibility"),
+                    metrics: vec![
+                        MetricScore {
+                            id: mqa_node("accessUrlStatusCode"),
+                            score: Some(50),
+                        },
+                        MetricScore {
+                            id: mqa_node("downloadUrlAvailability"),
+                            score: None,
+                        },
                     ],
-                ),
+                    score: 50,
+                },
+                DimensionScore {
+                    id: mqa_node("interoperability"),
+                    metrics: vec![MetricScore {
+                        id: mqa_node("formatAvailability"),
+                        score: Some(0),
+                    }],
+                    score: 0,
+                },
             ],
-        );
-        let b = Score(
-            node("https://distribution.b"),
-            vec![
-                DimensionScore(
-                    mqa_node("interoperability"),
-                    vec![MetricScore(mqa_node("formatAvailability"), Some(20))],
-                ),
-                DimensionScore(
-                    mqa_node("accessibility"),
-                    vec![
-                        MetricScore(mqa_node("downloadUrlAvailability"), None),
-                        MetricScore(mqa_node("accessUrlStatusCode"), None),
+            score: 50,
+        };
+        let b = Score {
+            id: node("https://distribution.b"),
+            dimensions: vec![
+                DimensionScore {
+                    id: mqa_node("accessibility"),
+                    metrics: vec![
+                        MetricScore {
+                            id: mqa_node("accessUrlStatusCode"),
+                            score: None,
+                        },
+                        MetricScore {
+                            id: mqa_node("downloadUrlAvailability"),
+                            score: None,
+                        },
                     ],
-                ),
+                    score: 0,
+                },
+                DimensionScore {
+                    id: mqa_node("interoperability"),
+                    metrics: vec![MetricScore {
+                        id: mqa_node("formatAvailability"),
+                        score: Some(20),
+                    }],
+                    score: 20,
+                },
             ],
-        );
-        assert_eq!(distribution_scores, vec![b.clone(), a.clone()]);
+            score: 20,
+        };
+        assert_eq!(distribution_scores, vec![a.clone(), b.clone()]);
         assert_eq!(best_score(distribution_scores), Some(a));
     }
 }
