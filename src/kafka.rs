@@ -176,8 +176,7 @@ async fn handle_event(event: MQAEvent) -> Result<(), Error> {
 
 async fn get_graph(client: &reqwest::Client, fdk_id: &Uuid) -> Result<Option<String>, Error> {
     let response = client
-        .get(format!("{}/api/scores/{fdk_id}", SCORING_API_URL.clone()))
-        .header("Accept", "text/turtle")
+        .get(format!("{}/api/graphs/{fdk_id}", SCORING_API_URL.clone()))
         .send()
         .await?;
 
