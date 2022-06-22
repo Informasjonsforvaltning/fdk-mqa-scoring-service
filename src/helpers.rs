@@ -2,7 +2,7 @@ use std::fs;
 
 use oxigraph::{
     io::GraphFormat,
-    model::{GraphNameRef, NamedNode, Quad, Subject},
+    model::{GraphNameRef, NamedNode, Quad, Subject, Term},
     sparql::{QueryResults, QuerySolution},
     store::{StorageError, Store},
 };
@@ -44,6 +44,14 @@ pub fn parse_graphs<G: ToString>(graphs: Vec<G>) -> Result<Store, Error> {
 pub fn named_quad_subject(result: Result<Quad, StorageError>) -> Result<NamedNode, Error> {
     match result?.subject {
         Subject::NamedNode(node) => Ok(node),
+        _ => Err("unable to get named quad subject".into()),
+    }
+}
+
+// Attemts to extract quad object as named node.
+pub fn named_quad_object(result: Result<Quad, StorageError>) -> Result<NamedNode, Error> {
+    match result?.object {
+        Term::NamedNode(node) => Ok(node),
         _ => Err("unable to get named quad object".into()),
     }
 }

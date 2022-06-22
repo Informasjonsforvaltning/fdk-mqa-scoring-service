@@ -12,7 +12,6 @@ pub mod dcat {
 
     pub const DATASET: N = n!("http://www.w3.org/ns/dcat#Dataset");
     pub const DISTRIBUTION: N = n!("http://www.w3.org/ns/dcat#distribution");
-    pub const DISTRIBUTION_CLASS: N = n!("http://www.w3.org/ns/dcat#Distribution");
 }
 
 pub mod dqv {
@@ -31,13 +30,28 @@ pub mod dqv {
 pub mod dcat_mqa {
     use super::N;
 
+    pub const ASSESSMENT_OF: N = n!("https://data.norge.no/vocabulary/dcatno-mqa#assessmentOf");
+    pub const DATASET_ASSESSMENT_CLASS: N =
+        n!("https://data.norge.no/vocabulary/dcatno-mqa#DatasetAssessment");
+    pub const HAS_DISTRIBUTION_ASSESSMENTS: N =
+        n!("https://data.norge.no/vocabulary/dcatno-mqa#hasDistributionAssessment");
+    pub const DISTRIBUTION_ASSESSMENT_CLASS: N =
+        n!("https://data.norge.no/vocabulary/dcatno-mqa#DistributionAssessment");
+    pub const CONTAINS_QUALITY_MEASUREMENT: N =
+        n!("https://data.norge.no/vocabulary/dcatno-mqa#containsQualityMeasurement");
     pub const TRUE_SCORE: N = n!("https://data.norge.no/vocabulary/dcatno-mqa#trueScore");
     pub const SCORE: N = n!("https://data.norge.no/vocabulary/dcatno-mqa#score");
     pub const SCORING: N = n!("https://data.norge.no/vocabulary/dcatno-mqa#scoring");
     pub const ACCESS_URL_STATUS_CODE: N =
-        n!("https://data.norge.no/vocabulary/dcatno-mqa#mqa:accessUrlStatusCode");
+        n!("https://data.norge.no/vocabulary/dcatno-mqa#accessUrlStatusCode");
     pub const DOWNLOAD_URL_STATUS_CODE: N =
-        n!("https://data.norge.no/vocabulary/dcatno-mqa#mqa:downloadUrlStatusCode");
+        n!("https://data.norge.no/vocabulary/dcatno-mqa#downloadUrlStatusCode");
+}
+
+pub mod dcat_terms {
+    use super::N;
+
+    pub const MODIFIED: N = n!("http://purl.org/dc/terms/modified");
 }
 
 pub mod rdf_syntax {
