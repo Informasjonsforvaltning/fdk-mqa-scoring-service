@@ -470,7 +470,7 @@ mod tests {
                 node("https://distribution.assessment.a"),
                 mqa_node("accessUrlStatusCode")
             )),
-            Some(&MeasurementValue::Bool(true))
+            Some(&MeasurementValue::Int(200))
         );
         assert_eq!(
             measurements.get(&(

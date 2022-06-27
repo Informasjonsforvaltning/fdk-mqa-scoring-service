@@ -113,7 +113,7 @@ mod tests {
 
         assert_eq!(scores, Scores {
             dataset: Score {
-                id: "https://dataset.assessment.foo".to_string(),
+                id: "https://dataset.foo".to_string(),
                 dimensions: vec![
                     DimensionScore {
                         id: "https://data.norge.no/vocabulary/dcatno-mqa#accessibility".to_string(),
@@ -153,7 +153,7 @@ mod tests {
             },
             distributions: vec![
                 Score {
-                    id: "https://distribution.assessment.a".to_string(),
+                    id: "https://distribution.a".to_string(),
                     dimensions: vec![
                         DimensionScore {
                             id: "https://data.norge.no/vocabulary/dcatno-mqa#accessibility".to_string(),
@@ -192,7 +192,7 @@ mod tests {
                     max_score: 90,
                 },
                 Score {
-                    id: "https://distribution.assessment.b".to_string(),
+                    id: "https://distribution.b".to_string(),
                     dimensions: vec![
                         DimensionScore {
                             id: "https://data.norge.no/vocabulary/dcatno-mqa#accessibility".to_string(),
