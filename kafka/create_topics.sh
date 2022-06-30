@@ -6,5 +6,6 @@ done
 for topic in mqa-events; do
     kafka-topics --bootstrap-server localhost:9092 \
         --create --if-not-exists \
+        --partitions 4 \
         --topic "${topic}"
 done
