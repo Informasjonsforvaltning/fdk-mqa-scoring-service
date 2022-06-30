@@ -1,13 +1,12 @@
 use std::env;
 
 use avro_rs::schema::Name;
-use futures::TryStreamExt;
 use lazy_static::lazy_static;
 use rdkafka::{
     config::RDKafkaLogLevel,
     consumer::{Consumer, StreamConsumer},
     error::KafkaError,
-    message::OwnedMessage,
+    message::BorrowedMessage,
     ClientConfig, Message,
 };
 use reqwest::StatusCode;
@@ -45,6 +44,7 @@ pub fn create_consumer() -> Result<StreamConsumer, KafkaError> {
         .set("enable.partition.eof", "false")
         .set("session.timeout.ms", "6000")
         .set("enable.auto.commit", "true")
+        .set("enable.auto.offset.store", "false")
         .set("auto.offset.reset", "beginning")
         .set("api.version.request", "false")
         .set("security.protocol", "plaintext")
@@ -58,49 +58,76 @@ pub fn create_consumer() -> Result<StreamConsumer, KafkaError> {
 pub async fn run_async_processor(worker_id: usize, sr_settings: SrSettings) -> Result<(), Error> {
     tracing::info!(worker_id, "starting worker");
     let consumer: StreamConsumer = create_consumer()?;
+    let mut decoder = AvroDecoder::new(sr_settings);
 
     tracing::info!(worker_id, "listening for messages");
-    consumer
-        .stream()
-        .try_for_each(|borrowed_message| {
-            let sr_settings = sr_settings.clone();
-
-            let message = borrowed_message.detach();
-            let span = tracing::span!(
-                Level::INFO,
-                "received_message",
-                topic = message.topic(),
-                partition = message.partition(),
-                offset = message.offset(),
-                timestamp = message.timestamp().to_millis(),
-            );
-
-            async move {
-                tokio::spawn(
-                    async move {
-                        match handle_message(message, sr_settings).await {
-                            Ok(_) => tracing::info!("message handeled successfully"),
-                            Err(e) => tracing::error!(
-                                error = e.to_string().as_str(),
-                                "failed while handling message"
-                            ),
-                        };
-                    }
-                    .instrument(span),
+    loop {
+        match consumer.recv().await {
+            Ok(message) => {
+                let span = tracing::span!(
+                    Level::INFO,
+                    "message",
+                    topic = message.topic(),
+                    partition = message.partition(),
+                    offset = message.offset(),
+                    timestamp = message.timestamp().to_millis(),
                 );
-                Ok(())
-            }
-        })
-        .await?;
 
-    Ok(())
+                receive_message(&consumer, &mut decoder, &message)
+                    .instrument(span)
+                    .await;
+            }
+            Err(e) => return Err(e.into()),
+        }
+    }
 }
 
-async fn parse_event(
-    msg: OwnedMessage,
-    mut decoder: AvroDecoder<'_>,
+async fn receive_message(
+    consumer: &StreamConsumer,
+    decoder: &mut AvroDecoder<'_>,
+    message: &BorrowedMessage<'_>,
+) {
+    match handle_message(decoder, &message).await {
+        Ok(_) => {
+            tracing::info!("message handled successfully");
+        }
+        Err(e) => tracing::error!(
+            error = e.to_string().as_str(),
+            "failed while handling message"
+        ),
+    };
+    if let Err(e) = consumer.store_offset_from_message(&message) {
+        tracing::warn!(error = e.to_string().as_str(), "failed to store offset");
+    };
+}
+
+pub async fn handle_message(
+    decoder: &mut AvroDecoder<'_>,
+    message: &BorrowedMessage<'_>,
+) -> Result<(), Error> {
+    if let Some(event) = decode_message(decoder, message).await? {
+        let span = tracing::span!(
+            Level::INFO,
+            "event",
+            fdk_id = event.fdk_id.as_str(),
+            event_type = format!("{:?}", event.event_type).as_str(),
+        );
+
+        tokio::task::spawn_blocking(|| handle_event(event).instrument(span))
+            .await
+            .map_err(|e| e.to_string())?
+            .await
+    } else {
+        tracing::info!("skipping event");
+        Ok(())
+    }
+}
+
+async fn decode_message(
+    decoder: &mut AvroDecoder<'_>,
+    message: &BorrowedMessage<'_>,
 ) -> Result<Option<MQAEvent>, Error> {
-    match decoder.decode(msg.payload()).await {
+    match decoder.decode(message.payload()).await {
         Ok(DecodeResult {
             name:
                 Some(Name {
@@ -109,32 +136,13 @@ async fn parse_event(
                     ..
                 }),
             value,
-        }) if name == "MQAEvent" && namespace == "no.fdk.mqa" => Ok(Some(
-            avro_rs::from_value::<MQAEvent>(&value).map_err(|e| e.to_string())?,
-        )),
+        }) if namespace == "no.fdk.mqa" && name == "MQAEvent" => {
+            let event = avro_rs::from_value(&value)?;
+            Ok(Some(event))
+        }
         Ok(_) => Ok(None),
         Err(e) => Err(e.into()),
     }
-}
-
-pub async fn handle_message(message: OwnedMessage, sr_settings: SrSettings) -> Result<(), Error> {
-    let decoder = AvroDecoder::new(sr_settings);
-    if let Some(event) = parse_event(message, decoder).await? {
-        let span = tracing::span!(
-            Level::INFO,
-            "parsed_event",
-            fdk_id = event.fdk_id.as_str(),
-            event_type = format!("{:?}", event.event_type).as_str(),
-        );
-
-        tokio::task::spawn_blocking(move || handle_event(event).instrument(span))
-            .await
-            .map_err(|e| e.to_string())?
-            .await?;
-    } else {
-        tracing::info!("skipping event");
-    }
-    Ok(())
 }
 
 async fn handle_event(event: MQAEvent) -> Result<(), Error> {
