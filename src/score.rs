@@ -2,15 +2,16 @@ use oxigraph::model::{NamedNode, NamedNodeRef};
 use std::collections::HashMap;
 
 use crate::{
+    assessment_graph::AssessmentGraph,
     error::Error,
-    measurement_graph::MeasurementGraph,
     measurement_value::MeasurementValue,
     score_graph::{ScoreDefinitions, ScoreDimension},
 };
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Score {
-    pub id: NamedNode,
+    pub assessment: NamedNode,
+    pub resource: NamedNode,
     pub dimensions: Vec<DimensionScore>,
     pub score: u64,
 }
@@ -41,16 +42,16 @@ fn sum_metrics(metrics: &Vec<MetricScore>) -> u64 {
 
 /// Calculates score for all metrics in all dimensions, for all distributions.
 pub fn calculate_score(
-    measurement_graph: &MeasurementGraph,
+    measurement_graph: &AssessmentGraph,
     score_definitions: &ScoreDefinitions,
 ) -> Result<(Score, Vec<Score>), Error> {
     let graph_measurements = measurement_graph.quality_measurements()?;
 
-    let dataset_name = measurement_graph.dataset()?;
+    let dataset = measurement_graph.dataset()?;
     let dataset_dimensions = node_dimension_scores(
         score_definitions,
         &graph_measurements,
-        dataset_name.as_ref(),
+        dataset.assessment.as_ref(),
     )?;
 
     let distributions = measurement_graph.distributions()?;
@@ -60,10 +61,11 @@ pub fn calculate_score(
             let dimensions = node_dimension_scores(
                 score_definitions,
                 &graph_measurements,
-                distribution.as_ref(),
+                distribution.assessment.as_ref(),
             )?;
             Ok(Score {
-                id: distribution.clone(),
+                assessment: distribution.assessment.clone(),
+                resource: distribution.resource.clone(),
                 score: sum_dimensions(&dimensions),
                 dimensions,
             })
@@ -75,7 +77,8 @@ pub fn calculate_score(
         .map(|score| {
             let dimensions = merge_dimension_scores(score.dimensions.clone(), &dataset_dimensions);
             Score {
-                id: score.id.clone(),
+                assessment: score.assessment.clone(),
+                resource: score.resource.clone(),
                 score: sum_dimensions(&dimensions),
                 dimensions,
             }
@@ -91,7 +94,8 @@ pub fn calculate_score(
 
     Ok((
         Score {
-            id: dataset_name,
+            assessment: dataset.assessment,
+            resource: dataset.resource,
             dimensions: dataset_dimensions,
             score: dataset_total_score,
         },
@@ -178,7 +182,7 @@ mod tests {
             .scores()
             .unwrap();
 
-        let mut measurement_graph = MeasurementGraph::new().unwrap();
+        let mut measurement_graph = AssessmentGraph::new().unwrap();
         measurement_graph.load(MEASUREMENT_GRAPH).unwrap();
         let (dataset_score, distribution_scores) =
             calculate_score(&measurement_graph, &score_definitions).unwrap();
@@ -186,7 +190,8 @@ mod tests {
         assert_eq!(
             dataset_score,
             Score {
-                id: node("https://dataset.foo"),
+                assessment: node("https://dataset.assessment.foo"),
+                resource: node("https://dataset.foo"),
                 dimensions: vec![
                     DimensionScore {
                         id: mqa_node("accessibility"),
@@ -216,7 +221,8 @@ mod tests {
         );
 
         let a = Score {
-            id: node("https://distribution.a"),
+            assessment: node("https://distribution.assessment.a"),
+            resource: node("https://distribution.a"),
             dimensions: vec![
                 DimensionScore {
                     id: mqa_node("accessibility"),
@@ -244,7 +250,8 @@ mod tests {
             score: 50,
         };
         let b = Score {
-            id: node("https://distribution.b"),
+            assessment: node("https://distribution.assessment.b"),
+            resource: node("https://distribution.b"),
             dimensions: vec![
                 DimensionScore {
                     id: mqa_node("accessibility"),

@@ -25,7 +25,7 @@ pub fn sorted_lines(graph: &str) -> Vec<String> {
                 OPTIONAL {{ ?measurement {} ?score . }}
             }}
         ",
-        dqv::HAS_QUALITY_MEASUREMENT,
+        dcat_mqa::CONTAINS_QUALITY_MEASUREMENT,
         dqv::IS_MEASUREMENT_OF,
         dqv::VALUE,
         dcat_mqa::SCORE,

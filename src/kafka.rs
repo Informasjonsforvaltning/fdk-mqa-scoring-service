@@ -19,9 +19,9 @@ use tracing::{Instrument, Level};
 use uuid::Uuid;
 
 use crate::{
+    assessment_graph::AssessmentGraph,
     error::Error,
     json_conversion::{convert_scores, UpdateRequest},
-    measurement_graph::MeasurementGraph,
     schemas::MQAEvent,
     score::calculate_score,
     score_graph::ScoreGraph,
@@ -29,7 +29,7 @@ use crate::{
 
 lazy_static! {
     pub static ref SCORING_API_URL: String =
-        env::var("SCORING_API_URL").unwrap_or("localhost:8080".to_string());
+        env::var("SCORING_API_URL").unwrap_or("http://localhost:8082".to_string());
     pub static ref SCORING_API_KEY: String = env::var("API_KEY").unwrap_or_default();
     pub static ref BROKERS: String = env::var("BROKERS").unwrap_or("localhost:9092".to_string());
     pub static ref SCHEMA_REGISTRY: String =
@@ -144,31 +144,40 @@ async fn handle_event(event: MQAEvent) -> Result<(), Error> {
     let score_graph = ScoreGraph::new()?;
     let score_definitions = score_graph.scores()?;
 
-    let mut measurement_graph = MeasurementGraph::new()?;
-    measurement_graph.load(event.graph)?;
-
     let fdk_id = Uuid::parse_str(event.fdk_id.as_str())
         .map_err(|e| format!("unable to parse FDK ID: {e}"))?;
 
     let client = reqwest::Client::new();
+    let mut assessment_graph = AssessmentGraph::new()?;
     if let Some(graph) = get_graph(&client, &fdk_id).await? {
-        measurement_graph.load(graph)?;
+        assessment_graph.load(graph)?;
+
+        let current_timestamp = assessment_graph.get_modified_timestmap()?;
+        if current_timestamp < event.timestamp {
+            assessment_graph.clear()?;
+        } else if current_timestamp > event.timestamp {
+            return Ok(());
+        }
     }
 
+    assessment_graph.load(event.graph)?;
+    assessment_graph.insert_modified_timestmap(event.timestamp)?;
+
     let (dataset_score, distribution_scores) =
-        calculate_score(&measurement_graph, &score_definitions)?;
+        calculate_score(&assessment_graph, &score_definitions)?;
     let scores = convert_scores(&score_definitions, &dataset_score, &distribution_scores);
 
-    measurement_graph.insert_scores(&vec![dataset_score])?;
-    measurement_graph.insert_scores(&distribution_scores)?;
+    assessment_graph.insert_scores(&vec![dataset_score])?;
+    assessment_graph.insert_scores(&distribution_scores)?;
 
     tracing::info!("posting scores");
     post_scores(
         &client,
         &fdk_id,
         UpdateRequest {
-            scores: scores,
-            graph: measurement_graph.to_string()?,
+            scores,
+            turtle_assessment: assessment_graph.to_turtle()?,
+            jsonld_assessment: assessment_graph.to_jsonld()?,
         },
     )
     .await
@@ -199,7 +208,7 @@ async fn post_scores(
 ) -> Result<(), Error> {
     let response = client
         .post(format!(
-            "{}/api/scores/{fdk_id}/update",
+            "{}/api/assessments/{fdk_id}",
             SCORING_API_URL.clone()
         ))
         .header("X-API-KEY", SCORING_API_KEY.clone())

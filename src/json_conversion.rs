@@ -4,7 +4,8 @@ use crate::{score, score_graph::ScoreDefinitions};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct UpdateRequest {
-    pub graph: String,
+    pub turtle_assessment: String,
+    pub jsonld_assessment: String,
     pub scores: Scores,
 }
 
@@ -64,7 +65,7 @@ fn convert_score(score_definitions: &ScoreDefinitions, score: &score::Score) -> 
         .collect();
 
     Score {
-        id: score.id.as_str().to_string(),
+        id: score.resource.as_str().to_string(),
         dimensions,
         score: score.score,
         max_score: score_definitions.total_score,
@@ -88,8 +89,8 @@ pub fn convert_scores(
 #[cfg(test)]
 mod tests {
     use crate::{
+        assessment_graph::AssessmentGraph,
         helpers::parse_graphs,
-        measurement_graph::MeasurementGraph,
         score::calculate_score,
         score_graph::ScoreGraph,
         test::{MEASUREMENT_GRAPH, METRIC_GRAPH, SCORE_GRAPH},
@@ -103,7 +104,7 @@ mod tests {
             .scores()
             .unwrap();
 
-        let mut measurement_graph = MeasurementGraph::new().unwrap();
+        let mut measurement_graph = AssessmentGraph::new().unwrap();
         measurement_graph.load(MEASUREMENT_GRAPH).unwrap();
         let (dataset_score, distribution_scores) =
             calculate_score(&measurement_graph, &score_definitions).unwrap();

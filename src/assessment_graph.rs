@@ -1,5 +1,6 @@
 use std::{collections::HashMap, io::Cursor};
 
+use chrono::{DateTime, NaiveDateTime, Utc};
 use oxigraph::{
     io::GraphFormat,
     model::{
@@ -8,18 +9,31 @@ use oxigraph::{
     },
     store::Store,
 };
+use sophia::{
+    graph::{inmem::LightGraph, Graph},
+    parser::turtle,
+    serializer::{QuadSerializer, Stringifier},
+    triple::stream::TripleSource,
+};
+use sophia_jsonld::JsonLdStringifier;
 
 use crate::{
     error::Error,
-    helpers::{execute_query, named_quad_subject},
+    helpers::{execute_query, named_quad_object, named_quad_subject},
     measurement_value::MeasurementValue,
     score::{DimensionScore, MetricScore, Score},
-    vocab::{dcat, dcat_mqa, dqv, rdf_syntax},
+    vocab::{dcat_mqa, dcat_terms, dqv, rdf_syntax},
 };
 
-pub struct MeasurementGraph(oxigraph::store::Store);
+#[derive(Debug, PartialEq)]
+pub struct AssessmentNode {
+    pub assessment: NamedNode,
+    pub resource: NamedNode,
+}
 
-impl MeasurementGraph {
+pub struct AssessmentGraph(oxigraph::store::Store);
+
+impl AssessmentGraph {
     /// Creates new measurement graph.
     pub fn new() -> Result<Self, Error> {
         let store = Store::new()?;
@@ -38,32 +52,63 @@ impl MeasurementGraph {
     }
 
     /// Retrieves all named dataset nodes.
-    pub fn dataset(&self) -> Result<NamedNode, Error> {
-        self.0
-            .quads_for_pattern(
-                None,
-                Some(rdf_syntax::TYPE),
-                Some(dcat::DATASET.into()),
-                None,
-            )
-            .map(named_quad_subject)
-            .next()
-            .unwrap_or(Err("measurement graph has no datasets".into()))
-    }
-
-    /// Retrieves all named distribution nodes.
-    pub fn distributions(&self) -> Result<Vec<NamedNode>, Error> {
-        let mut distributions = self
+    pub fn dataset(&self) -> Result<AssessmentNode, Error> {
+        let assessment = self
             .0
             .quads_for_pattern(
                 None,
                 Some(rdf_syntax::TYPE),
-                Some(dcat::DISTRIBUTION_CLASS.into()),
+                Some(dcat_mqa::DATASET_ASSESSMENT_CLASS.into()),
                 None,
             )
             .map(named_quad_subject)
-            .collect::<Result<Vec<NamedNode>, Error>>()?;
-        distributions.sort();
+            .next()
+            .unwrap_or(Err("assessment graph has no dataset assessments".into()))?;
+        let resource = self.assessment_resource(assessment.as_ref())?;
+        Ok(AssessmentNode {
+            assessment,
+            resource,
+        })
+    }
+
+    pub fn assessment_resource(&self, assessment: NamedNodeRef) -> Result<NamedNode, Error> {
+        self.0
+            .quads_for_pattern(
+                Some(assessment.into()),
+                Some(dcat_mqa::ASSESSMENT_OF),
+                None,
+                None,
+            )
+            .map(named_quad_object)
+            .next()
+            .unwrap_or(Err(format!(
+                "assessment graph has no resource that '{}' is assessment of",
+                assessment
+            )
+            .into()))
+    }
+
+    /// Retrieves all named distribution assessment nodes.
+    pub fn distributions(&self) -> Result<Vec<AssessmentNode>, Error> {
+        let distributions = self
+            .0
+            .quads_for_pattern(
+                None,
+                Some(rdf_syntax::TYPE),
+                Some(dcat_mqa::DISTRIBUTION_ASSESSMENT_CLASS.into()),
+                None,
+            )
+            .map(named_quad_subject)
+            .collect::<Result<Vec<NamedNode>, Error>>()?
+            .into_iter()
+            .map(|assessment| {
+                let resource = self.assessment_resource(assessment.as_ref())?;
+                Ok(AssessmentNode {
+                    assessment,
+                    resource,
+                })
+            })
+            .collect::<Result<Vec<AssessmentNode>, Error>>()?;
         Ok(distributions)
     }
 
@@ -80,7 +125,7 @@ impl MeasurementGraph {
                 ?measurement {} ?value .
             }}
         ",
-            dqv::HAS_QUALITY_MEASUREMENT,
+            dcat_mqa::CONTAINS_QUALITY_MEASUREMENT,
             dqv::IS_MEASUREMENT_OF,
             dqv::VALUE
         );
@@ -104,24 +149,78 @@ impl MeasurementGraph {
             .collect()
     }
 
+    /// Inserts modification timestamp.
+    pub fn insert_modified_timestmap(&self, timestamp: i64) -> Result<(), Error> {
+        let timestamp = DateTime::<Utc>::from_utc(NaiveDateTime::from_timestamp(timestamp, 0), Utc)
+            .format("%Y-%m-%d %H:%M:%S %z")
+            .to_string();
+
+        let dataset_assessment = self.dataset()?.assessment;
+        self.0.insert(&Quad::new(
+            dataset_assessment.as_ref(),
+            dcat_terms::MODIFIED,
+            Literal::new_typed_literal(timestamp, xsd::DATE_TIME),
+            GraphNameRef::DefaultGraph,
+        ))?;
+        Ok(())
+    }
+
+    /// Get modification timestamp.
+    pub fn get_modified_timestmap(&self) -> Result<i64, Error> {
+        let dataset_assessment = self.dataset()?.assessment;
+        let term = match self
+            .0
+            .quads_for_pattern(
+                Some(dataset_assessment.as_ref().into()),
+                Some(dcat_terms::MODIFIED),
+                None,
+                None,
+            )
+            .next()
+        {
+            Some(Ok(quad)) => Ok(Some(quad.object)),
+            Some(Err(e)) => Err(e),
+            None => Ok(None),
+        }?;
+
+        if let Some(Term::Literal(literal)) = term {
+            let timestamp = DateTime::parse_from_str(literal.value(), "%Y-%m-%d %H:%M:%S %z")
+                .map_err(|e| e.to_string())?
+                .timestamp();
+            Ok(timestamp)
+        } else {
+            Err("measurement graph has no modified timestamp".into())
+        }
+    }
+
     /// Inserts score into measurement graph.
     pub fn insert_scores(&mut self, scores: &Vec<Score>) -> Result<(), Error> {
         for Score {
-            id: node,
+            assessment,
+            resource,
             dimensions,
             score: total_score,
         } in scores
         {
-            self.insert_node_score(node.as_ref(), total_score)?;
+            self.insert_node_score(assessment.as_ref(), resource.as_ref(), total_score)?;
             for DimensionScore {
                 id: name,
                 metrics,
                 score: total_score,
             } in dimensions
             {
-                self.insert_dimension_score(node.as_ref(), name.as_ref(), total_score)?;
+                self.insert_dimension_score(
+                    assessment.as_ref(),
+                    resource.as_ref(),
+                    name.as_ref(),
+                    total_score,
+                )?;
                 for metric_score in metrics {
-                    self.insert_measurement_score(node.as_ref(), metric_score)?;
+                    self.insert_measurement_score(
+                        assessment.as_ref(),
+                        resource.as_ref(),
+                        metric_score,
+                    )?;
                 }
             }
         }
@@ -129,47 +228,71 @@ impl MeasurementGraph {
     }
 
     /// Insert total score of a node into graph.
-    fn insert_node_score(&mut self, node: NamedNodeRef, score: &u64) -> Result<(), Error> {
-        self.insert_measurement_property(node, dcat_mqa::SCORING, dqv::VALUE, score)
+    fn insert_node_score(
+        &mut self,
+        assessment: NamedNodeRef,
+        computed_on: NamedNodeRef,
+        score: &u64,
+    ) -> Result<(), Error> {
+        self.insert_measurement_property(
+            assessment,
+            computed_on,
+            dcat_mqa::SCORING,
+            dqv::VALUE,
+            score,
+        )
     }
 
     /// Insert dimension score of a node into graph.
     fn insert_dimension_score(
         &mut self,
-        node: NamedNodeRef,
+        assessment: NamedNodeRef,
+        computed_on: NamedNodeRef,
         dimension: NamedNodeRef,
         score: &u64,
     ) -> Result<(), Error> {
         let metric = NamedNode::new(format!("{}Scoring", dimension.as_str()).as_str())?;
-        self.insert_measurement_property(node, metric.as_ref(), dqv::VALUE, score)
+        self.insert_measurement_property(
+            assessment,
+            computed_on,
+            metric.as_ref(),
+            dqv::VALUE,
+            score,
+        )
     }
 
     /// Insert measurement score into graph.
     fn insert_measurement_score(
         &mut self,
-        node: NamedNodeRef,
+        assessment: NamedNodeRef,
+        computed_on: NamedNodeRef,
         metric: &MetricScore,
     ) -> Result<(), Error> {
-        self.insert_measurement_property(
-            node,
-            metric.id.as_ref(),
-            dcat_mqa::SCORE,
-            &metric.score.unwrap_or_default(),
-        )
+        if let Some(score) = metric.score {
+            self.insert_measurement_property(
+                assessment,
+                computed_on,
+                metric.id.as_ref(),
+                dcat_mqa::SCORE,
+                &score,
+            )?;
+        }
+        Ok(())
     }
 
     /// Insert the value of a metric measurement into graph.
     /// Creates the measurement if it does not exist.
     fn insert_measurement_property(
         &mut self,
-        node: NamedNodeRef,
+        assessment: NamedNodeRef,
+        computed_on: NamedNodeRef,
         metric: NamedNodeRef,
         property: NamedNodeRef,
         value: &u64,
     ) -> Result<(), Error> {
-        let measurement = match self.get_measurement(node, metric)? {
+        let measurement = match self.get_measurement(assessment, metric)? {
             Some(node) => node,
-            None => self.insert_measurement(node, metric)?,
+            None => self.insert_measurement(assessment, computed_on, metric)?,
         };
 
         let entry = Quad {
@@ -197,7 +320,7 @@ impl MeasurementGraph {
                     ?measurement {} {metric} .
                 }}
             ",
-            dqv::HAS_QUALITY_MEASUREMENT,
+            dcat_mqa::CONTAINS_QUALITY_MEASUREMENT,
             dqv::IS_MEASUREMENT_OF,
         );
         let result = execute_query(&self.0, &q)?.into_iter().next();
@@ -221,7 +344,8 @@ impl MeasurementGraph {
     /// Inserts measurement of metric for node.
     fn insert_measurement(
         &mut self,
-        node: NamedNodeRef,
+        assessment: NamedNodeRef,
+        computed_on: NamedNodeRef,
         metric: NamedNodeRef,
     ) -> Result<NamedOrBlankNode, Error> {
         let measurement = BlankNode::default();
@@ -241,12 +365,12 @@ impl MeasurementGraph {
         self.0.insert(&Quad {
             subject: measurement.clone().into(),
             predicate: dqv::COMPUTED_ON.into(),
-            object: node.into(),
+            object: computed_on.into(),
             graph_name: GraphNameRef::DefaultGraph.into(),
         })?;
         self.0.insert(&Quad {
-            subject: node.into(),
-            predicate: dqv::HAS_QUALITY_MEASUREMENT.into(),
+            subject: assessment.into(),
+            predicate: dcat_mqa::CONTAINS_QUALITY_MEASUREMENT.into(),
             object: measurement.clone().into(),
             graph_name: GraphNameRef::DefaultGraph.into(),
         })?;
@@ -254,13 +378,34 @@ impl MeasurementGraph {
         Ok(NamedOrBlankNode::BlankNode(measurement))
     }
 
+    /// Clean content of graph.
+    pub fn clear(&mut self) -> Result<(), Error> {
+        self.0.clear()?;
+        Ok(())
+    }
+
     /// Dump graph to string.
-    pub fn to_string(&self) -> Result<String, Error> {
+    pub fn to_turtle(&self) -> Result<String, Error> {
         let mut buff = Cursor::new(Vec::new());
         self.0
             .dump_graph(&mut buff, GraphFormat::Turtle, GraphNameRef::DefaultGraph)?;
 
         String::from_utf8(buff.into_inner()).map_err(|e| e.to_string().into())
+    }
+
+    /// Dump graph to json.
+    pub fn to_jsonld(&self) -> Result<String, Error> {
+        let graph: LightGraph = turtle::parse_str(&self.to_turtle()?)
+            .collect_triples()
+            .map_err(|e| Error::String(e.to_string()))?;
+
+        let mut serializer = JsonLdStringifier::new_stringifier();
+        serializer
+            .serialize_dataset(&graph.as_dataset())
+            .map_err(|e| Error::String(e.to_string()))?;
+
+        String::from_utf8(serializer.as_utf8().iter().map(|b| b.clone()).collect())
+            .map_err(|e| e.to_string().into())
     }
 }
 
@@ -269,8 +414,8 @@ mod tests {
     use super::*;
     use crate::test::{mqa_node, node, MEASUREMENT_GRAPH};
 
-    pub fn measurement_graph() -> MeasurementGraph {
-        let mut graph = MeasurementGraph::new().unwrap();
+    pub fn measurement_graph() -> AssessmentGraph {
+        let mut graph = AssessmentGraph::new().unwrap();
         graph.load(MEASUREMENT_GRAPH).unwrap();
         graph
     }
@@ -279,7 +424,13 @@ mod tests {
     fn dataset() {
         let graph = measurement_graph();
         let dataset = graph.dataset().unwrap();
-        assert_eq!(dataset, node("https://dataset.foo"));
+        assert_eq!(
+            dataset,
+            AssessmentNode {
+                assessment: node("https://dataset.assessment.foo"),
+                resource: node("https://dataset.foo"),
+            }
+        );
     }
 
     #[test]
@@ -289,8 +440,14 @@ mod tests {
         assert_eq!(
             distributions,
             vec![
-                node("https://distribution.a"),
-                node("https://distribution.b"),
+                AssessmentNode {
+                    assessment: node("https://distribution.assessment.a"),
+                    resource: node("https://distribution.a"),
+                },
+                AssessmentNode {
+                    assessment: node("https://distribution.assessment.b"),
+                    resource: node("https://distribution.b"),
+                },
             ]
         );
     }
@@ -303,31 +460,40 @@ mod tests {
         assert_eq!(measurements.len(), 4);
         assert_eq!(
             measurements.get(&(
-                node("https://dataset.foo"),
+                node("https://dataset.assessment.foo"),
                 mqa_node("downloadUrlAvailability")
             )),
             Some(&MeasurementValue::Bool(true))
         );
         assert_eq!(
             measurements.get(&(
-                node("https://distribution.a"),
+                node("https://distribution.assessment.a"),
                 mqa_node("accessUrlStatusCode")
             )),
-            Some(&MeasurementValue::Bool(true))
+            Some(&MeasurementValue::Int(200))
         );
         assert_eq!(
             measurements.get(&(
-                node("https://distribution.a"),
+                node("https://distribution.assessment.a"),
                 mqa_node("formatAvailability")
             )),
             Some(&MeasurementValue::Bool(false))
         );
         assert_eq!(
             measurements.get(&(
-                node("https://distribution.b"),
+                node("https://distribution.assessment.b"),
                 mqa_node("formatAvailability")
             )),
             Some(&MeasurementValue::Bool(true))
         );
+    }
+
+    #[test]
+    fn modification_timestamp() {
+        let graph = measurement_graph();
+        assert!(graph.get_modified_timestmap().is_err());
+        graph.insert_modified_timestmap(1656316912).unwrap();
+        assert!(graph.to_turtle().unwrap().contains("<https://dataset.assessment.foo> <http://purl.org/dc/terms/modified> \"2022-06-27 08:01:52 +0000\"^^<http://www.w3.org/2001/XMLSchema#dateTime> ."));
+        assert_eq!(graph.get_modified_timestmap().unwrap(), 1656316912);
     }
 }
