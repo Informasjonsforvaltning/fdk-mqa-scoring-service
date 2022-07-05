@@ -25,7 +25,7 @@ pub async fn process_single_message() -> Result<(), Error> {
         .unwrap()
         .detach();
 
-    handle_message(message, sr_settings()).await
+    handle_message(message).await
 }
 
 pub fn sr_settings() -> SrSettings {

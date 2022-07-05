@@ -1,7 +1,7 @@
-use std::env;
+use std::{env, time::Duration};
 
 use avro_rs::schema::Name;
-use futures::TryStreamExt;
+use futures::{lock::Mutex, TryStreamExt};
 use lazy_static::lazy_static;
 use rdkafka::{
     config::RDKafkaLogLevel,
@@ -36,6 +36,23 @@ lazy_static! {
         env::var("SCHEMA_REGISTRY").unwrap_or("http://localhost:8081".to_string());
     pub static ref INPUT_TOPIC: String =
         env::var("INPUT_TOPIC").unwrap_or("mqa-events".to_string());
+    static ref SR_SETTINGS: SrSettings = {
+        let mut schema_registry_urls = SCHEMA_REGISTRY.split(",");
+        let mut sr_settings_builder =
+            SrSettings::new_builder(schema_registry_urls.next().unwrap().to_string());
+        schema_registry_urls.for_each(|url| {
+            sr_settings_builder.add_url(url.to_string());
+        });
+
+        let sr_settings = sr_settings_builder
+            .set_timeout(Duration::from_secs(30))
+            .build()
+            .unwrap();
+
+        sr_settings
+    };
+    static ref AVRO_DECODER: Mutex<AvroDecoder<'static>> =
+        Mutex::new(AvroDecoder::new(SR_SETTINGS.clone()));
 }
 
 pub fn create_consumer() -> Result<StreamConsumer, KafkaError> {
@@ -55,7 +72,7 @@ pub fn create_consumer() -> Result<StreamConsumer, KafkaError> {
     Ok(consumer)
 }
 
-pub async fn run_async_processor(worker_id: usize, sr_settings: SrSettings) -> Result<(), Error> {
+pub async fn run_async_processor(worker_id: usize) -> Result<(), Error> {
     tracing::info!(worker_id, "starting worker");
     let consumer: StreamConsumer = create_consumer()?;
 
@@ -63,8 +80,6 @@ pub async fn run_async_processor(worker_id: usize, sr_settings: SrSettings) -> R
     consumer
         .stream()
         .try_for_each(|borrowed_message| {
-            let sr_settings = sr_settings.clone();
-
             let message = borrowed_message.detach();
             let span = tracing::span!(
                 Level::INFO,
@@ -78,7 +93,7 @@ pub async fn run_async_processor(worker_id: usize, sr_settings: SrSettings) -> R
             async move {
                 tokio::spawn(
                     async move {
-                        match handle_message(message, sr_settings).await {
+                        match handle_message(message).await {
                             Ok(_) => tracing::info!("message handeled successfully"),
                             Err(e) => tracing::error!(
                                 error = e.to_string().as_str(),
@@ -98,9 +113,8 @@ pub async fn run_async_processor(worker_id: usize, sr_settings: SrSettings) -> R
 
 async fn parse_event(
     msg: OwnedMessage,
-    mut decoder: AvroDecoder<'_>,
 ) -> Result<Option<MQAEvent>, Error> {
-    match decoder.decode(msg.payload()).await {
+    match AVRO_DECODER.lock().await.decode(msg.payload()).await {
         Ok(DecodeResult {
             name:
                 Some(Name {
@@ -117,9 +131,8 @@ async fn parse_event(
     }
 }
 
-pub async fn handle_message(message: OwnedMessage, sr_settings: SrSettings) -> Result<(), Error> {
-    let decoder = AvroDecoder::new(sr_settings);
-    if let Some(event) = parse_event(message, decoder).await? {
+pub async fn handle_message(message: OwnedMessage) -> Result<(), Error> {
+    if let Some(event) = parse_event(message).await? {
         let span = tracing::span!(
             Level::INFO,
             "parsed_event",
