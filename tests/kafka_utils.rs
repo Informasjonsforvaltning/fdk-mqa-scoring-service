@@ -10,13 +10,17 @@ use rdkafka::{
     ClientConfig,
 };
 use schema_registry_converter::{
-    async_impl::{avro::AvroEncoder, schema_registry::SrSettings},
+    async_impl::{
+        avro::{AvroDecoder, AvroEncoder},
+        schema_registry::SrSettings,
+    },
     schema_registry_common::SubjectNameStrategy,
 };
 use serde::Serialize;
 
 pub async fn process_single_message() -> Result<(), Error> {
     let consumer = create_consumer().unwrap();
+    let mut decoder = AvroDecoder::new(sr_settings());
 
     // Attempt to receive message for 3s before aborting with an error
     let message = tokio::time::timeout(Duration::from_millis(3000), consumer.stream().next())
@@ -25,7 +29,7 @@ pub async fn process_single_message() -> Result<(), Error> {
         .unwrap()
         .unwrap();
 
-    handle_message(&message).await
+    handle_message(&mut decoder, &message).await
 }
 
 pub fn sr_settings() -> SrSettings {

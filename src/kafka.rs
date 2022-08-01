@@ -36,23 +36,6 @@ lazy_static! {
         env::var("SCHEMA_REGISTRY").unwrap_or("http://localhost:8081".to_string());
     pub static ref INPUT_TOPIC: String =
         env::var("INPUT_TOPIC").unwrap_or("mqa-events".to_string());
-    static ref SR_SETTINGS: SrSettings = {
-        let mut schema_registry_urls = SCHEMA_REGISTRY.split(",");
-        let mut sr_settings_builder =
-            SrSettings::new_builder(schema_registry_urls.next().unwrap().to_string());
-        schema_registry_urls.for_each(|url| {
-            sr_settings_builder.add_url(url.to_string());
-        });
-
-        let sr_settings = sr_settings_builder
-            .set_timeout(Duration::from_secs(30))
-            .build()
-            .unwrap();
-
-        sr_settings
-    };
-    static ref AVRO_DECODER: Mutex<AvroDecoder<'static>> =
-        Mutex::new(AvroDecoder::new(SR_SETTINGS.clone()));
 }
 
 pub fn create_consumer() -> Result<StreamConsumer, KafkaError> {
@@ -73,9 +56,11 @@ pub fn create_consumer() -> Result<StreamConsumer, KafkaError> {
     Ok(consumer)
 }
 
-pub async fn run_async_processor(worker_id: usize) -> Result<(), Error> {
+pub async fn run_async_processor(worker_id: usize, sr_settings: SrSettings) -> Result<(), Error> {
+    tracing::info!(worker_id, "starting worker");
     tracing::info!(worker_id, "starting worker");
     let consumer: StreamConsumer = create_consumer()?;
+    let mut decoder = AvroDecoder::new(sr_settings);
 
     tracing::info!(worker_id, "listening for messages");
     loop {
@@ -89,12 +74,18 @@ pub async fn run_async_processor(worker_id: usize) -> Result<(), Error> {
             timestamp = message.timestamp().to_millis(),
         );
 
-        receive_message(&consumer, &message).instrument(span).await;
+        receive_message(&consumer, &mut decoder, &message)
+            .instrument(span)
+            .await;
     }
 }
 
-async fn receive_message(consumer: &StreamConsumer, message: &BorrowedMessage<'_>) {
-    match handle_message(message).await {
+async fn receive_message(
+    consumer: &StreamConsumer,
+    decoder: &mut AvroDecoder<'_>,
+    message: &BorrowedMessage<'_>,
+) {
+    match handle_message(decoder, message).await {
         Ok(_) => {
             tracing::info!("message handled successfully");
         }
@@ -108,8 +99,11 @@ async fn receive_message(consumer: &StreamConsumer, message: &BorrowedMessage<'_
     };
 }
 
-pub async fn handle_message(message: &BorrowedMessage<'_>) -> Result<(), Error> {
-    if let Some(event) = decode_message(message).await? {
+pub async fn handle_message(
+    decoder: &mut AvroDecoder<'_>,
+    message: &BorrowedMessage<'_>,
+) -> Result<(), Error> {
+    if let Some(event) = decode_message(decoder, message).await? {
         let span = tracing::span!(
             Level::INFO,
             "event",
@@ -127,8 +121,11 @@ pub async fn handle_message(message: &BorrowedMessage<'_>) -> Result<(), Error> 
     }
 }
 
-async fn decode_message(message: &BorrowedMessage<'_>) -> Result<Option<MQAEvent>, Error> {
-    match AVRO_DECODER.lock().await.decode(message.payload()).await {
+async fn decode_message(
+    decoder: &mut AvroDecoder<'_>,
+    message: &BorrowedMessage<'_>,
+) -> Result<Option<MQAEvent>, Error> {
+    match decoder.decode(message.payload()).await {
         Ok(DecodeResult {
             name:
                 Some(Name {
