@@ -17,15 +17,15 @@ use serde::Serialize;
 
 pub async fn process_single_message() -> Result<(), Error> {
     let consumer = create_consumer().unwrap();
+
     // Attempt to receive message for 3s before aborting with an error
     let message = tokio::time::timeout(Duration::from_millis(3000), consumer.stream().next())
         .await
         .unwrap()
         .unwrap()
-        .unwrap()
-        .detach();
+        .unwrap();
 
-    handle_message(message).await
+    handle_message(&message).await
 }
 
 pub fn sr_settings() -> SrSettings {
