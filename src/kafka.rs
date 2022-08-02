@@ -1,7 +1,6 @@
-use std::{env, time::Duration};
+use std::env;
 
 use avro_rs::schema::Name;
-use futures::lock::Mutex;
 use lazy_static::lazy_static;
 use rdkafka::{
     config::RDKafkaLogLevel,
@@ -159,7 +158,7 @@ async fn handle_event(event: MQAEvent) -> Result<(), Error> {
         assessment_graph.load(graph)?;
 
         let current_timestamp = assessment_graph.get_modified_timestmap()?;
-        tracing::info!("timestamps {}, {}", current_timestamp, event.timestamp);
+        tracing::info!("timestamps: {} - {}", current_timestamp, event.timestamp);
 
         if current_timestamp < event.timestamp {
             assessment_graph.clear()?;
@@ -193,7 +192,10 @@ async fn handle_event(event: MQAEvent) -> Result<(), Error> {
 
 async fn get_graph(client: &reqwest::Client, fdk_id: &Uuid) -> Result<Option<String>, Error> {
     let response = client
-        .get(format!("{}/api/graphs/{fdk_id}", SCORING_API_URL.clone()))
+        .get(format!(
+            "{}/api/assessments/{fdk_id}",
+            SCORING_API_URL.clone()
+        ))
         .send()
         .await?;
 

@@ -417,8 +417,6 @@ impl AssessmentGraph {
 
 #[cfg(test)]
 mod tests {
-    use tracing::info;
-
     use super::*;
     use crate::test::{mqa_node, node, MEASUREMENT_GRAPH};
 
