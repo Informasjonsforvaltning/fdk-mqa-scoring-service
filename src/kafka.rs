@@ -159,6 +159,8 @@ async fn handle_event(event: MQAEvent) -> Result<(), Error> {
         assessment_graph.load(graph)?;
 
         let current_timestamp = assessment_graph.get_modified_timestmap()?;
+        tracing::info!("timestamps {}, {}", current_timestamp, event.timestamp);
+
         if current_timestamp < event.timestamp {
             assessment_graph.clear()?;
         } else if current_timestamp > event.timestamp {

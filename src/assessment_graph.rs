@@ -151,9 +151,15 @@ impl AssessmentGraph {
 
     /// Inserts modification timestamp.
     pub fn insert_modified_timestmap(&self, timestamp: i64) -> Result<(), Error> {
-        let timestamp = DateTime::<Utc>::from_utc(NaiveDateTime::from_timestamp(timestamp, 0), Utc)
-            .format("%Y-%m-%d %H:%M:%S %z")
-            .to_string();
+        let timestamp = DateTime::<Utc>::from_utc(
+            NaiveDateTime::from_timestamp(
+                timestamp / 1000,
+                ((timestamp % 1000) * 1_000_000) as u32,
+            ),
+            Utc,
+        )
+        .format("%Y-%m-%d %H:%M:%S%.f %z")
+        .to_string();
 
         let dataset_assessment = self.dataset()?.assessment;
         self.0.insert(&Quad::new(
@@ -184,9 +190,9 @@ impl AssessmentGraph {
         }?;
 
         if let Some(Term::Literal(literal)) = term {
-            let timestamp = DateTime::parse_from_str(literal.value(), "%Y-%m-%d %H:%M:%S %z")
+            let timestamp = DateTime::parse_from_str(literal.value(), "%Y-%m-%d %H:%M:%S%.f %z")
                 .map_err(|e| e.to_string())?
-                .timestamp();
+                .timestamp_millis();
             Ok(timestamp)
         } else {
             Err("measurement graph has no modified timestamp".into())
@@ -411,6 +417,8 @@ impl AssessmentGraph {
 
 #[cfg(test)]
 mod tests {
+    use tracing::info;
+
     use super::*;
     use crate::test::{mqa_node, node, MEASUREMENT_GRAPH};
 
@@ -492,8 +500,8 @@ mod tests {
     fn modification_timestamp() {
         let graph = measurement_graph();
         assert!(graph.get_modified_timestmap().is_err());
-        graph.insert_modified_timestmap(1656316912).unwrap();
-        assert!(graph.to_turtle().unwrap().contains("<https://dataset.assessment.foo> <http://purl.org/dc/terms/modified> \"2022-06-27 08:01:52 +0000\"^^<http://www.w3.org/2001/XMLSchema#dateTime> ."));
-        assert_eq!(graph.get_modified_timestmap().unwrap(), 1656316912);
+        graph.insert_modified_timestmap(1656316912123).unwrap();
+        assert!(graph.to_turtle().unwrap().contains("<https://dataset.assessment.foo> <http://purl.org/dc/terms/modified> \"2022-06-27 08:01:52.123 +0000\"^^<http://www.w3.org/2001/XMLSchema#dateTime> ."));
+        assert_eq!(graph.get_modified_timestmap().unwrap(), 1656316912123);
     }
 }
