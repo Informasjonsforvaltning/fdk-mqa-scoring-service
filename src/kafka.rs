@@ -1,7 +1,6 @@
-use std::{env, time::Duration};
+use std::env;
 
 use avro_rs::schema::Name;
-use futures::lock::Mutex;
 use lazy_static::lazy_static;
 use rdkafka::{
     config::RDKafkaLogLevel,
@@ -58,7 +57,7 @@ pub fn create_consumer() -> Result<StreamConsumer, KafkaError> {
 
 pub async fn run_async_processor(worker_id: usize, sr_settings: SrSettings) -> Result<(), Error> {
     tracing::info!(worker_id, "starting worker");
-    tracing::info!(worker_id, "starting worker");
+    
     let consumer: StreamConsumer = create_consumer()?;
     let mut decoder = AvroDecoder::new(sr_settings);
 
@@ -68,10 +67,10 @@ pub async fn run_async_processor(worker_id: usize, sr_settings: SrSettings) -> R
         let span = tracing::span!(
             Level::INFO,
             "message",
-            topic = message.topic(),
-            partition = message.partition(),
+            // topic = message.topic(),
+            // partition = message.partition(),
             offset = message.offset(),
-            timestamp = message.timestamp().to_millis(),
+            kafka_timestamp = message.timestamp().to_millis(),
         );
 
         receive_message(&consumer, &mut decoder, &message)
@@ -144,8 +143,6 @@ async fn decode_message(
 }
 
 async fn handle_event(event: MQAEvent) -> Result<(), Error> {
-    tracing::info!("handling event");
-
     // TODO: load one per worker and pass metrics_scores to `handle_event`
     let score_graph = ScoreGraph::new()?;
     let score_definitions = score_graph.scores()?;
@@ -159,11 +156,30 @@ async fn handle_event(event: MQAEvent) -> Result<(), Error> {
         assessment_graph.load(graph)?;
 
         let current_timestamp = assessment_graph.get_modified_timestmap()?;
+
         if current_timestamp < event.timestamp {
+            tracing::debug!(
+                existing_timestamp = current_timestamp,
+                event_timestamp = event.timestamp,
+                "overriding existing assessment"
+            );
             assessment_graph.clear()?;
         } else if current_timestamp > event.timestamp {
+            tracing::debug!(
+                existing_timestamp = current_timestamp,
+                event_timestamp = event.timestamp,
+                "skipping outdated assessment event"
+            );
             return Ok(());
+        } else {
+            tracing::debug!(
+                existing_timestamp = current_timestamp,
+                event_timestamp = event.timestamp,
+                "merging with existing assessment"
+            );
         }
+    } else {
+        tracing::debug!("saving new assessment");
     }
 
     assessment_graph.load(event.graph)?;
@@ -176,7 +192,7 @@ async fn handle_event(event: MQAEvent) -> Result<(), Error> {
     assessment_graph.insert_scores(&vec![dataset_score])?;
     assessment_graph.insert_scores(&distribution_scores)?;
 
-    tracing::info!("posting scores");
+    tracing::debug!("posting assessment to api");
     post_scores(
         &client,
         &fdk_id,
@@ -191,7 +207,10 @@ async fn handle_event(event: MQAEvent) -> Result<(), Error> {
 
 async fn get_graph(client: &reqwest::Client, fdk_id: &Uuid) -> Result<Option<String>, Error> {
     let response = client
-        .get(format!("{}/api/graphs/{fdk_id}", SCORING_API_URL.clone()))
+        .get(format!(
+            "{}/api/assessments/{fdk_id}",
+            SCORING_API_URL.clone()
+        ))
         .send()
         .await?;
 
