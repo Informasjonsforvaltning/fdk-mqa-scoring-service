@@ -1,4 +1,4 @@
-use std::env;
+use std::{env, time::Duration};
 
 use avro_rs::schema::Name;
 use lazy_static::lazy_static;
@@ -21,20 +21,35 @@ use crate::{
     assessment_graph::AssessmentGraph,
     error::Error,
     json_conversion::{convert_scores, UpdateRequest},
-    schemas::MQAEvent,
+    schemas::{Event, MqaEvent, MqaEventType},
     score::calculate_score,
     score_graph::ScoreGraph,
 };
 
 lazy_static! {
-    pub static ref SCORING_API_URL: String =
-        env::var("SCORING_API_URL").unwrap_or("http://localhost:8082".to_string());
-    pub static ref SCORING_API_KEY: String = env::var("API_KEY").unwrap_or_default();
     pub static ref BROKERS: String = env::var("BROKERS").unwrap_or("localhost:9092".to_string());
     pub static ref SCHEMA_REGISTRY: String =
         env::var("SCHEMA_REGISTRY").unwrap_or("http://localhost:8081".to_string());
     pub static ref INPUT_TOPIC: String =
         env::var("INPUT_TOPIC").unwrap_or("mqa-events".to_string());
+    pub static ref SCORING_API_URL: String =
+        env::var("SCORING_API_URL").unwrap_or("http://localhost:8082".to_string());
+    pub static ref SCORING_API_KEY: String = env::var("API_KEY").unwrap_or_default();
+}
+
+pub fn create_sr_settings() -> Result<SrSettings, Error> {
+    let mut schema_registry_urls = SCHEMA_REGISTRY.split(",");
+
+    let mut sr_settings_builder =
+        SrSettings::new_builder(schema_registry_urls.next().unwrap_or_default().to_string());
+    schema_registry_urls.for_each(|url| {
+        sr_settings_builder.add_url(url.to_string());
+    });
+
+    let sr_settings = sr_settings_builder
+        .set_timeout(Duration::from_secs(5))
+        .build()?;
+    Ok(sr_settings)
 }
 
 pub fn create_consumer() -> Result<StreamConsumer, KafkaError> {
@@ -57,7 +72,7 @@ pub fn create_consumer() -> Result<StreamConsumer, KafkaError> {
 
 pub async fn run_async_processor(worker_id: usize, sr_settings: SrSettings) -> Result<(), Error> {
     tracing::info!(worker_id, "starting worker");
-    
+
     let consumer: StreamConsumer = create_consumer()?;
     let mut decoder = AvroDecoder::new(sr_settings);
 
@@ -85,16 +100,11 @@ async fn receive_message(
     message: &BorrowedMessage<'_>,
 ) {
     match handle_message(decoder, message).await {
-        Ok(_) => {
-            tracing::info!("message handled successfully");
-        }
-        Err(e) => tracing::error!(
-            error = e.to_string().as_str(),
-            "failed while handling message"
-        ),
+        Ok(_) => tracing::info!("message handled successfully"),
+        Err(e) => tracing::error!(error = e.to_string(), "failed while handling message"),
     };
     if let Err(e) = consumer.store_offset_from_message(&message) {
-        tracing::warn!(error = e.to_string().as_str(), "failed to store offset");
+        tracing::warn!(error = e.to_string(), "failed to store offset");
     };
 }
 
@@ -102,30 +112,33 @@ pub async fn handle_message(
     decoder: &mut AvroDecoder<'_>,
     message: &BorrowedMessage<'_>,
 ) -> Result<(), Error> {
-    if let Some(event) = decode_message(decoder, message).await? {
-        let span = tracing::span!(
-            Level::INFO,
-            "event",
-            fdk_id = event.fdk_id.as_str(),
-            event_type = format!("{:?}", event.event_type).as_str(),
-        );
+    match decode_message(decoder, message).await? {
+        Event::MqaEvent(event) => {
+            let span = tracing::span!(
+                Level::INFO,
+                "event",
+                fdk_id = event.fdk_id.as_str(),
+                event_type = format!("{:?}", event.event_type).as_str(),
+            );
 
-        tokio::task::spawn_blocking(|| handle_event(event).instrument(span))
-            .await
-            .map_err(|e| e.to_string())?
-            .await
-    } else {
-        tracing::info!("skipping event");
-        Ok(())
+            tokio::task::spawn_blocking(|| handle_mqa_event(event).instrument(span))
+                .await
+                .map_err(|e| e.to_string())?
+                .await?;
+        }
+        Event::Unknown { namespace, name } => {
+            tracing::warn!(namespace, name, "skipping unknown event");
+        }
     }
+    Ok(())
 }
 
 async fn decode_message(
     decoder: &mut AvroDecoder<'_>,
     message: &BorrowedMessage<'_>,
-) -> Result<Option<MQAEvent>, Error> {
-    match decoder.decode(message.payload()).await {
-        Ok(DecodeResult {
+) -> Result<Event, Error> {
+    match decoder.decode(message.payload()).await? {
+        DecodeResult {
             name:
                 Some(Name {
                     name,
@@ -133,76 +146,87 @@ async fn decode_message(
                     ..
                 }),
             value,
-        }) if namespace == "no.fdk.mqa" && name == "MQAEvent" => {
-            let event = avro_rs::from_value(&value)?;
-            Ok(Some(event))
+        } => {
+            let event = match (namespace.as_str(), name.as_str()) {
+                ("no.fdk.mqa", "MQAEvent") => {
+                    Event::MqaEvent(avro_rs::from_value::<MqaEvent>(&value)?)
+                }
+                _ => Event::Unknown { namespace, name },
+            };
+            Ok(event)
         }
-        Ok(_) => Ok(None),
-        Err(e) => Err(e.into()),
+        _ => Err("unable to identify event without namespace and name".into()),
     }
 }
 
-async fn handle_event(event: MQAEvent) -> Result<(), Error> {
-    // TODO: load one per worker and pass metrics_scores to `handle_event`
-    let score_graph = ScoreGraph::new()?;
-    let score_definitions = score_graph.scores()?;
+async fn handle_mqa_event(event: MqaEvent) -> Result<(), Error> {
+    match event.event_type {
+        MqaEventType::PropertiesChecked
+        | MqaEventType::UrlsChecked
+        | MqaEventType::DcatComplienceChecked => {
+            // TODO: load one per worker and pass metrics_scores to `handle_event`
+            let score_graph = ScoreGraph::new()?;
+            let score_definitions = score_graph.scores()?;
 
-    let fdk_id = Uuid::parse_str(event.fdk_id.as_str())
-        .map_err(|e| format!("unable to parse FDK ID: {e}"))?;
+            let fdk_id = Uuid::parse_str(event.fdk_id.as_str())
+                .map_err(|e| format!("unable to parse FDK ID: {e}"))?;
 
-    let client = reqwest::Client::new();
-    let mut assessment_graph = AssessmentGraph::new()?;
-    if let Some(graph) = get_graph(&client, &fdk_id).await? {
-        assessment_graph.load(graph)?;
+            let client = reqwest::Client::new();
+            let mut assessment_graph = AssessmentGraph::new()?;
+            if let Some(graph) = get_graph(&client, &fdk_id).await? {
+                assessment_graph.load(graph)?;
 
-        let current_timestamp = assessment_graph.get_modified_timestmap()?;
+                let current_timestamp = assessment_graph.get_modified_timestmap()?;
 
-        if current_timestamp < event.timestamp {
-            tracing::debug!(
-                existing_timestamp = current_timestamp,
-                event_timestamp = event.timestamp,
-                "overriding existing assessment"
-            );
-            assessment_graph.clear()?;
-        } else if current_timestamp > event.timestamp {
-            tracing::debug!(
-                existing_timestamp = current_timestamp,
-                event_timestamp = event.timestamp,
-                "skipping outdated assessment event"
-            );
-            return Ok(());
-        } else {
-            tracing::debug!(
-                existing_timestamp = current_timestamp,
-                event_timestamp = event.timestamp,
-                "merging with existing assessment"
-            );
+                if current_timestamp < event.timestamp {
+                    tracing::debug!(
+                        existing_timestamp = current_timestamp,
+                        event_timestamp = event.timestamp,
+                        "overriding existing assessment"
+                    );
+                    assessment_graph.clear()?;
+                } else if current_timestamp > event.timestamp {
+                    tracing::debug!(
+                        existing_timestamp = current_timestamp,
+                        event_timestamp = event.timestamp,
+                        "skipping outdated assessment event"
+                    );
+                    return Ok(());
+                } else {
+                    tracing::debug!(
+                        existing_timestamp = current_timestamp,
+                        event_timestamp = event.timestamp,
+                        "merging with existing assessment"
+                    );
+                }
+            } else {
+                tracing::debug!("saving new assessment");
+            }
+
+            assessment_graph.load(event.graph)?;
+            assessment_graph.insert_modified_timestmap(event.timestamp)?;
+
+            let (dataset_score, distribution_scores) =
+                calculate_score(&assessment_graph, &score_definitions)?;
+            let scores = convert_scores(&score_definitions, &dataset_score, &distribution_scores);
+
+            assessment_graph.insert_scores(&vec![dataset_score])?;
+            assessment_graph.insert_scores(&distribution_scores)?;
+
+            tracing::debug!("posting assessment to api");
+            post_scores(
+                &client,
+                &fdk_id,
+                UpdateRequest {
+                    scores,
+                    turtle_assessment: assessment_graph.to_turtle()?,
+                    jsonld_assessment: assessment_graph.to_jsonld()?,
+                },
+            )
+            .await
         }
-    } else {
-        tracing::debug!("saving new assessment");
+        MqaEventType::Unknown => Err(format!("unknown MqaEventType").into()),
     }
-
-    assessment_graph.load(event.graph)?;
-    assessment_graph.insert_modified_timestmap(event.timestamp)?;
-
-    let (dataset_score, distribution_scores) =
-        calculate_score(&assessment_graph, &score_definitions)?;
-    let scores = convert_scores(&score_definitions, &dataset_score, &distribution_scores);
-
-    assessment_graph.insert_scores(&vec![dataset_score])?;
-    assessment_graph.insert_scores(&distribution_scores)?;
-
-    tracing::debug!("posting assessment to api");
-    post_scores(
-        &client,
-        &fdk_id,
-        UpdateRequest {
-            scores,
-            turtle_assessment: assessment_graph.to_turtle()?,
-            jsonld_assessment: assessment_graph.to_jsonld()?,
-        },
-    )
-    .await
 }
 
 async fn get_graph(client: &reqwest::Client, fdk_id: &Uuid) -> Result<Option<String>, Error> {

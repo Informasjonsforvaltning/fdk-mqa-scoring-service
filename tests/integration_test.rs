@@ -1,8 +1,9 @@
 use fdk_mqa_scoring_service::{
     kafka::INPUT_TOPIC,
-    schemas::{MQAEvent, MQAEventType},
+    schemas::{MqaEvent, MqaEventType},
 };
 use kafka_utils::{process_single_message, TestProducer};
+use serde::Serialize;
 use uuid::Uuid;
 
 mod kafka_utils;
@@ -41,8 +42,8 @@ async fn score() {
 
 async fn assert_transformation(input: &str, expected_ttl: &str, expected_json: &str) {
     let uuid = Uuid::new_v4();
-    let input_message = MQAEvent {
-        event_type: MQAEventType::PropertiesChecked,
+    let input_message = MqaEvent {
+        event_type: MqaEventType::PropertiesChecked,
         timestamp: 1647698566000,
         fdk_id: uuid.to_string(),
         graph: input.to_string(),
