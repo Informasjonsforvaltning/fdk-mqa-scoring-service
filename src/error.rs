@@ -1,24 +1,17 @@
-use oxigraph::{
-    model::IriParseError,
-    sparql::{EvaluationError, QueryError},
-    store::{LoaderError, SerializerError, StorageError},
-};
-use thiserror::Error;
-
-#[derive(Error, Debug)]
+#[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error(transparent)]
-    LoaderError(#[from] LoaderError),
+    LoaderError(#[from] oxigraph::store::LoaderError),
     #[error(transparent)]
-    StorageError(#[from] StorageError),
+    StorageError(#[from] oxigraph::store::StorageError),
     #[error(transparent)]
-    QueryError(#[from] QueryError),
+    QueryError(#[from] oxigraph::sparql::QueryError),
     #[error(transparent)]
-    IriParseError(#[from] IriParseError),
+    IriParseError(#[from] oxigraph::model::IriParseError),
     #[error(transparent)]
-    EvaluationError(#[from] EvaluationError),
+    EvaluationError(#[from] oxigraph::sparql::EvaluationError),
     #[error(transparent)]
-    SerializerError(#[from] SerializerError),
+    SerializerError(#[from] oxigraph::store::SerializerError),
     #[error(transparent)]
     SerdeError(#[from] serde_json::Error),
     #[error(transparent)]
