@@ -1,8 +1,10 @@
 use std::time::Duration;
 
 use fdk_mqa_scoring_service::{
+    assessment_graph::AssessmentGraph,
     error::Error,
     kafka::{create_consumer, handle_message, BROKERS},
+    score_graph::ScoreGraph,
 };
 use futures::StreamExt;
 use rdkafka::{
@@ -21,6 +23,8 @@ use serde::Serialize;
 pub async fn process_single_message() -> Result<(), Error> {
     let consumer = create_consumer().unwrap();
     let mut decoder = AvroDecoder::new(sr_settings());
+    let score_definitions = ScoreGraph::new()?.scores()?;
+    let assessment_graph = AssessmentGraph::new()?;
 
     // Attempt to receive message for 3s before aborting with an error
     let message = tokio::time::timeout(Duration::from_millis(3000), consumer.stream().next())
@@ -29,7 +33,13 @@ pub async fn process_single_message() -> Result<(), Error> {
         .unwrap()
         .unwrap();
 
-    handle_message(&mut decoder, &message).await
+    handle_message(
+        &mut decoder,
+        &score_definitions,
+        &assessment_graph,
+        &message,
+    )
+    .await
 }
 
 pub fn sr_settings() -> SrSettings {
