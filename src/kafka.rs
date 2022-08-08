@@ -268,6 +268,9 @@ async fn post_scores(
     if response.status() == StatusCode::ACCEPTED {
         Ok(())
     } else {
+        if response.status() == StatusCode::PAYLOAD_TOO_LARGE {
+            tracing::warn!(payload = format!("{:?}", update), "payload too large");
+        }
         Err(format!(
             "Invalid response from scoring api: {} - {}",
             response.status(),
