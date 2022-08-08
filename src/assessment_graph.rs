@@ -41,7 +41,7 @@ impl AssessmentGraph {
     }
 
     /// Loads graph from string.
-    pub fn load<G: ToString>(&mut self, graph: G) -> Result<(), Error> {
+    pub fn load<G: ToString>(&self, graph: G) -> Result<(), Error> {
         self.0.load_graph(
             graph.to_string().as_ref(),
             GraphFormat::Turtle,
@@ -200,7 +200,7 @@ impl AssessmentGraph {
     }
 
     /// Inserts score into measurement graph.
-    pub fn insert_scores(&mut self, scores: &Vec<Score>) -> Result<(), Error> {
+    pub fn insert_scores(&self, scores: &Vec<Score>) -> Result<(), Error> {
         for Score {
             assessment,
             resource,
@@ -235,7 +235,7 @@ impl AssessmentGraph {
 
     /// Insert total score of a node into graph.
     fn insert_node_score(
-        &mut self,
+        &self,
         assessment: NamedNodeRef,
         computed_on: NamedNodeRef,
         score: &u64,
@@ -251,7 +251,7 @@ impl AssessmentGraph {
 
     /// Insert dimension score of a node into graph.
     fn insert_dimension_score(
-        &mut self,
+        &self,
         assessment: NamedNodeRef,
         computed_on: NamedNodeRef,
         dimension: NamedNodeRef,
@@ -269,7 +269,7 @@ impl AssessmentGraph {
 
     /// Insert measurement score into graph.
     fn insert_measurement_score(
-        &mut self,
+        &self,
         assessment: NamedNodeRef,
         computed_on: NamedNodeRef,
         metric: &MetricScore,
@@ -289,7 +289,7 @@ impl AssessmentGraph {
     /// Insert the value of a metric measurement into graph.
     /// Creates the measurement if it does not exist.
     fn insert_measurement_property(
-        &mut self,
+        &self,
         assessment: NamedNodeRef,
         computed_on: NamedNodeRef,
         metric: NamedNodeRef,
@@ -314,7 +314,7 @@ impl AssessmentGraph {
 
     /// Retrieves measurement of metric for node.
     fn get_measurement(
-        &mut self,
+        &self,
         node: NamedNodeRef,
         metric: NamedNodeRef,
     ) -> Result<Option<NamedOrBlankNode>, Error> {
@@ -349,7 +349,7 @@ impl AssessmentGraph {
 
     /// Inserts measurement of metric for node.
     fn insert_measurement(
-        &mut self,
+        &self,
         assessment: NamedNodeRef,
         computed_on: NamedNodeRef,
         metric: NamedNodeRef,
@@ -385,7 +385,7 @@ impl AssessmentGraph {
     }
 
     /// Clean content of graph.
-    pub fn clear(&mut self) -> Result<(), Error> {
+    pub fn clear(&self) -> Result<(), Error> {
         self.0.clear()?;
         Ok(())
     }
@@ -421,7 +421,7 @@ mod tests {
     use crate::test::{mqa_node, node, MEASUREMENT_GRAPH};
 
     pub fn measurement_graph() -> AssessmentGraph {
-        let mut graph = AssessmentGraph::new().unwrap();
+        let graph = AssessmentGraph::new().unwrap();
         graph.load(MEASUREMENT_GRAPH).unwrap();
         graph
     }

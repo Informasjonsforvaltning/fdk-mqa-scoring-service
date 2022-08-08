@@ -18,12 +18,12 @@ use tracing::{Instrument, Level};
 use uuid::Uuid;
 
 use crate::{
-    assessment_graph::AssessmentGraph,
+    assessment_graph::{self, AssessmentGraph},
     error::Error,
     json_conversion::{convert_scores, UpdateRequest},
     schemas::{Event, MqaEvent, MqaEventType},
     score::calculate_score,
-    score_graph::ScoreGraph,
+    score_graph::{ScoreDefinitions, ScoreGraph},
 };
 
 lazy_static! {
@@ -75,6 +75,8 @@ pub async fn run_async_processor(worker_id: usize, sr_settings: SrSettings) -> R
 
     let consumer: StreamConsumer = create_consumer()?;
     let mut decoder = AvroDecoder::new(sr_settings);
+    let score_definitions = ScoreGraph::new()?.scores()?;
+    let assessment_graph = AssessmentGraph::new()?;
 
     tracing::info!(worker_id, "listening for messages");
     loop {
@@ -88,18 +90,26 @@ pub async fn run_async_processor(worker_id: usize, sr_settings: SrSettings) -> R
             kafka_timestamp = message.timestamp().to_millis(),
         );
 
-        receive_message(&consumer, &mut decoder, &message)
-            .instrument(span)
-            .await;
+        receive_message(
+            &consumer,
+            &mut decoder,
+            &score_definitions,
+            &assessment_graph,
+            &message,
+        )
+        .instrument(span)
+        .await;
     }
 }
 
 async fn receive_message(
     consumer: &StreamConsumer,
     decoder: &mut AvroDecoder<'_>,
+    score_definitions: &ScoreDefinitions,
+    assessment_graph: &AssessmentGraph,
     message: &BorrowedMessage<'_>,
 ) {
-    match handle_message(decoder, message).await {
+    match handle_message(decoder, score_definitions, assessment_graph, message).await {
         Ok(_) => tracing::info!("message handled successfully"),
         Err(e) => tracing::error!(error = e.to_string(), "failed while handling message"),
     };
@@ -110,6 +120,8 @@ async fn receive_message(
 
 pub async fn handle_message(
     decoder: &mut AvroDecoder<'_>,
+    score_definitions: &ScoreDefinitions,
+    assessment_graph: &AssessmentGraph,
     message: &BorrowedMessage<'_>,
 ) -> Result<(), Error> {
     match decode_message(decoder, message).await? {
@@ -121,10 +133,10 @@ pub async fn handle_message(
                 event_type = format!("{:?}", event.event_type).as_str(),
             );
 
-            tokio::task::spawn_blocking(|| handle_mqa_event(event).instrument(span))
+            handle_mqa_event(score_definitions, assessment_graph, event)
+                .instrument(span)
                 .await
-                .map_err(|e| e.to_string())?
-                .await?;
+                .map_err(|e| e.to_string())?;
         }
         Event::Unknown { namespace, name } => {
             tracing::warn!(namespace, name, "skipping unknown event");
@@ -159,20 +171,20 @@ async fn decode_message(
     }
 }
 
-async fn handle_mqa_event(event: MqaEvent) -> Result<(), Error> {
+async fn handle_mqa_event(
+    score_definitions: &ScoreDefinitions,
+    assessment_graph: &AssessmentGraph,
+    event: MqaEvent,
+) -> Result<(), Error> {
     match event.event_type {
         MqaEventType::PropertiesChecked
         | MqaEventType::UrlsChecked
         | MqaEventType::DcatComplienceChecked => {
-            // TODO: load one per worker and pass metrics_scores to `handle_event`
-            let score_graph = ScoreGraph::new()?;
-            let score_definitions = score_graph.scores()?;
-
+            assessment_graph.clear();
             let fdk_id = Uuid::parse_str(event.fdk_id.as_str())
                 .map_err(|e| format!("unable to parse FDK ID: {e}"))?;
 
             let client = reqwest::Client::new();
-            let mut assessment_graph = AssessmentGraph::new()?;
             if let Some(graph) = get_graph(&client, &fdk_id).await? {
                 assessment_graph.load(graph)?;
 
