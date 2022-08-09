@@ -1,4 +1,7 @@
-use std::{env, time::Duration};
+use std::{
+    env,
+    time::{Duration, Instant},
+};
 
 use avro_rs::schema::Name;
 use lazy_static::lazy_static;
@@ -18,7 +21,7 @@ use tracing::{Instrument, Level};
 use uuid::Uuid;
 
 use crate::{
-    assessment_graph::{self, AssessmentGraph},
+    assessment_graph::AssessmentGraph,
     error::Error,
     json_conversion::{convert_scores, UpdateRequest},
     schemas::{Event, MqaEvent, MqaEventType},
@@ -109,9 +112,17 @@ async fn receive_message(
     assessment_graph: &AssessmentGraph,
     message: &BorrowedMessage<'_>,
 ) {
+    let start_time = Instant::now();
     match handle_message(decoder, score_definitions, assessment_graph, message).await {
-        Ok(_) => tracing::info!("message handled successfully"),
-        Err(e) => tracing::error!(error = e.to_string(), "failed while handling message"),
+        Ok(_) => tracing::info!(
+            elapsed_millis = start_time.elapsed().as_millis(),
+            "message handled successfully"
+        ),
+        Err(e) => tracing::error!(
+            elapsed_millis = start_time.elapsed().as_millis(),
+            error = e.to_string(),
+            "failed while handling message"
+        ),
     };
     if let Err(e) = consumer.store_offset_from_message(&message) {
         tracing::warn!(error = e.to_string(), "failed to store offset");
