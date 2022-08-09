@@ -85,9 +85,9 @@ pub async fn run_async_processor(worker_id: usize, sr_settings: SrSettings) -> R
             Level::INFO,
             "message",
             // topic = message.topic(),
-            // partition = message.partition(),
+            partition = message.partition(),
             offset = message.offset(),
-            kafka_timestamp = message.timestamp().to_millis(),
+            timestamp = message.timestamp().to_millis(),
         );
 
         receive_message(
