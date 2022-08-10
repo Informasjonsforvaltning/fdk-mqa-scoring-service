@@ -80,6 +80,7 @@ pub async fn run_async_processor(worker_id: usize, sr_settings: SrSettings) -> R
     let mut decoder = AvroDecoder::new(sr_settings);
     let score_definitions = ScoreGraph::new()?.scores()?;
     let assessment_graph = AssessmentGraph::new()?;
+    let http_client = reqwest::Client::new();
 
     tracing::info!(worker_id, "listening for messages");
     loop {
@@ -98,6 +99,7 @@ pub async fn run_async_processor(worker_id: usize, sr_settings: SrSettings) -> R
             &mut decoder,
             &score_definitions,
             &assessment_graph,
+            &http_client,
             &message,
         )
         .instrument(span)
@@ -110,10 +112,19 @@ async fn receive_message(
     decoder: &mut AvroDecoder<'_>,
     score_definitions: &ScoreDefinitions,
     assessment_graph: &AssessmentGraph,
+    http_client: &reqwest::Client,
     message: &BorrowedMessage<'_>,
 ) {
     let start_time = Instant::now();
-    match handle_message(decoder, score_definitions, assessment_graph, message).await {
+    match handle_message(
+        decoder,
+        score_definitions,
+        assessment_graph,
+        http_client,
+        message,
+    )
+    .await
+    {
         Ok(_) => tracing::info!(
             elapsed_millis = start_time.elapsed().as_millis(),
             "message handled successfully"
@@ -133,6 +144,7 @@ pub async fn handle_message(
     decoder: &mut AvroDecoder<'_>,
     score_definitions: &ScoreDefinitions,
     assessment_graph: &AssessmentGraph,
+    http_client: &reqwest::Client,
     message: &BorrowedMessage<'_>,
 ) -> Result<(), Error> {
     match decode_message(decoder, message).await? {
@@ -144,7 +156,7 @@ pub async fn handle_message(
                 event_type = format!("{:?}", event.event_type).as_str(),
             );
 
-            handle_mqa_event(score_definitions, assessment_graph, event)
+            handle_mqa_event(score_definitions, assessment_graph, http_client, event)
                 .instrument(span)
                 .await
                 .map_err(|e| e.to_string())?;
@@ -185,22 +197,21 @@ async fn decode_message(
 async fn handle_mqa_event(
     score_definitions: &ScoreDefinitions,
     assessment_graph: &AssessmentGraph,
+    http_client: &reqwest::Client,
     event: MqaEvent,
 ) -> Result<(), Error> {
     match event.event_type {
         MqaEventType::PropertiesChecked
         | MqaEventType::UrlsChecked
         | MqaEventType::DcatComplienceChecked => {
-            assessment_graph.clear();
+            assessment_graph.clear()?;
             let fdk_id = Uuid::parse_str(event.fdk_id.as_str())
                 .map_err(|e| format!("unable to parse FDK ID: {e}"))?;
 
-            let client = reqwest::Client::new();
-            if let Some(graph) = get_graph(&client, &fdk_id).await? {
+            if let Some(graph) = get_graph(&http_client, &fdk_id).await? {
                 assessment_graph.load(graph)?;
 
                 let current_timestamp = assessment_graph.get_modified_timestmap()?;
-
                 if current_timestamp < event.timestamp {
                     tracing::debug!(
                         existing_timestamp = current_timestamp,
@@ -238,7 +249,7 @@ async fn handle_mqa_event(
 
             tracing::debug!("posting assessment to api");
             post_scores(
-                &client,
+                &http_client,
                 &fdk_id,
                 UpdateRequest {
                     scores,
