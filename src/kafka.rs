@@ -248,13 +248,15 @@ async fn handle_mqa_event(
             assessment_graph.insert_scores(&distribution_scores)?;
 
             tracing::debug!("posting assessment to api");
+            let turtle_assessment = assessment_graph.to_turtle()?;
+            let jsonld_assessment = assessment_graph.turtle_to_jsonld(&turtle_assessment)?;
             post_scores(
                 &http_client,
                 &fdk_id,
                 UpdateRequest {
                     scores,
-                    turtle_assessment: assessment_graph.to_turtle()?,
-                    jsonld_assessment: assessment_graph.to_jsonld()?,
+                    turtle_assessment,
+                    jsonld_assessment,
                 },
             )
             .await
