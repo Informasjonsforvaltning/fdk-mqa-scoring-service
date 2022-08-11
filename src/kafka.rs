@@ -24,6 +24,7 @@ use crate::{
     assessment_graph::AssessmentGraph,
     error::Error,
     json_conversion::{convert_scores, UpdateRequest},
+    metrics::{PROCESSED_MESSAGES, PROCESSING_TIME},
     schemas::{Event, MqaEvent, MqaEventType},
     score::calculate_score,
     score_graph::{ScoreDefinitions, ScoreGraph},
@@ -116,25 +117,30 @@ async fn receive_message(
     message: &BorrowedMessage<'_>,
 ) {
     let start_time = Instant::now();
-    match handle_message(
+    let result = handle_message(
         decoder,
         score_definitions,
         assessment_graph,
         http_client,
         message,
     )
-    .await
-    {
-        Ok(_) => tracing::info!(
-            elapsed_millis = start_time.elapsed().as_millis(),
-            "message handled successfully"
-        ),
-        Err(e) => tracing::error!(
-            elapsed_millis = start_time.elapsed().as_millis(),
-            error = e.to_string(),
-            "failed while handling message"
-        ),
+    .await;
+    let elapsed_millis = start_time.elapsed().as_millis();
+    match result {
+        Ok(_) => {
+            tracing::info!(elapsed_millis, "message handled successfully");
+            PROCESSED_MESSAGES.with_label_values(&["success"]).inc();
+        }
+        Err(e) => {
+            tracing::error!(
+                elapsed_millis,
+                error = e.to_string(),
+                "failed while handling message"
+            );
+            PROCESSED_MESSAGES.with_label_values(&["error"]).inc();
+        }
     };
+    PROCESSING_TIME.observe(elapsed_millis as f64 / 1000.0);
     if let Err(e) = consumer.store_offset_from_message(&message) {
         tracing::warn!(error = e.to_string(), "failed to store offset");
     };

@@ -4,6 +4,7 @@ pub mod helpers;
 pub mod json_conversion;
 pub mod kafka;
 mod measurement_value;
+pub mod metrics;
 pub mod schemas;
 mod score;
 pub mod score_graph;
