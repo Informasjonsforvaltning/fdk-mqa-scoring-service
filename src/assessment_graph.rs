@@ -400,8 +400,8 @@ impl AssessmentGraph {
     }
 
     /// Dump graph to json.
-    pub fn to_jsonld(&self) -> Result<String, Error> {
-        let graph: LightGraph = turtle::parse_str(&self.to_turtle()?)
+    pub fn turtle_to_jsonld(&self, turtle: &str) -> Result<String, Error> {
+        let graph: LightGraph = turtle::parse_str(turtle)
             .collect_triples()
             .map_err(|e| Error::String(e.to_string()))?;
 

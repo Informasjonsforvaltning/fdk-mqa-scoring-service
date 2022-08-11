@@ -25,6 +25,7 @@ pub async fn process_single_message() -> Result<(), Error> {
     let mut decoder = AvroDecoder::new(sr_settings());
     let score_definitions = ScoreGraph::new()?.scores()?;
     let assessment_graph = AssessmentGraph::new()?;
+    let http_client = reqwest::Client::new();
 
     // Attempt to receive message for 3s before aborting with an error
     let message = tokio::time::timeout(Duration::from_millis(3000), consumer.stream().next())
@@ -37,6 +38,7 @@ pub async fn process_single_message() -> Result<(), Error> {
         &mut decoder,
         &score_definitions,
         &assessment_graph,
+        &http_client,
         &message,
     )
     .await

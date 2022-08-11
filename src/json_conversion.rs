@@ -104,7 +104,7 @@ mod tests {
             .scores()
             .unwrap();
 
-        let mut measurement_graph = AssessmentGraph::new().unwrap();
+        let measurement_graph = AssessmentGraph::new().unwrap();
         measurement_graph.load(MEASUREMENT_GRAPH).unwrap();
         let (dataset_score, distribution_scores) =
             calculate_score(&measurement_graph, &score_definitions).unwrap();
