@@ -1,24 +1,24 @@
 {
     "dataset": {
-        "name": "https://dataset.foo",
+        "id": "https://dataset.foo",
         "dimensions": [
             {
-                "name": "https://data.norge.no/vocabulary/dcatno-mqa#accessibility",
+                "id": "https://data.norge.no/vocabulary/dcatno-mqa#accessibility",
                 "metrics": [
                     {
-                        "metric": "https://data.norge.no/vocabulary/dcatno-mqa#accessUrlStatusCode",
+                        "id": "https://data.norge.no/vocabulary/dcatno-mqa#accessUrlStatusCode",
                         "score": 50,
                         "is_scored": true,
                         "max_score": 50
                     },
                     {
-                        "metric": "https://data.norge.no/vocabulary/dcatno-mqa#downloadUrlAvailability",
+                        "id": "https://data.norge.no/vocabulary/dcatno-mqa#downloadUrlAvailability",
                         "score": 20,
                         "is_scored": true,
                         "max_score": 20
                     },
                     {
-                        "metric": "https://data.norge.no/vocabulary/dcatno-mqa#downloadUrlStatusCode",
+                        "id": "https://data.norge.no/vocabulary/dcatno-mqa#downloadUrlStatusCode",
                         "score": 0,
                         "is_scored": false,
                         "max_score": 30
@@ -28,28 +28,28 @@
                 "max_score": 100
             },
             {
-                "name": "https://data.norge.no/vocabulary/dcatno-mqa#contextuality",
+                "id": "https://data.norge.no/vocabulary/dcatno-mqa#contextuality",
                 "metrics": [
                     {
-                        "metric": "https://data.norge.no/vocabulary/dcatno-mqa#byteSizeAvailability",
+                        "id": "https://data.norge.no/vocabulary/dcatno-mqa#byteSizeAvailability",
                         "score": 0,
                         "is_scored": false,
                         "max_score": 5
                     },
                     {
-                        "metric": "https://data.norge.no/vocabulary/dcatno-mqa#dateIssuedAvailability",
+                        "id": "https://data.norge.no/vocabulary/dcatno-mqa#dateIssuedAvailability",
                         "score": 0,
                         "is_scored": false,
                         "max_score": 5
                     },
                     {
-                        "metric": "https://data.norge.no/vocabulary/dcatno-mqa#dateModifiedAvailability",
+                        "id": "https://data.norge.no/vocabulary/dcatno-mqa#dateModifiedAvailability",
                         "score": 0,
                         "is_scored": false,
                         "max_score": 5
                     },
                     {
-                        "metric": "https://data.norge.no/vocabulary/dcatno-mqa#rightsAvailability",
+                        "id": "https://data.norge.no/vocabulary/dcatno-mqa#rightsAvailability",
                         "score": 0,
                         "is_scored": false,
                         "max_score": 5
@@ -59,28 +59,28 @@
                 "max_score": 20
             },
             {
-                "name": "https://data.norge.no/vocabulary/dcatno-mqa#findability",
+                "id": "https://data.norge.no/vocabulary/dcatno-mqa#findability",
                 "metrics": [
                     {
-                        "metric": "https://data.norge.no/vocabulary/dcatno-mqa#categoryAvailability",
+                        "id": "https://data.norge.no/vocabulary/dcatno-mqa#categoryAvailability",
                         "score": 0,
                         "is_scored": false,
                         "max_score": 30
                     },
                     {
-                        "metric": "https://data.norge.no/vocabulary/dcatno-mqa#keywordAvailability",
+                        "id": "https://data.norge.no/vocabulary/dcatno-mqa#keywordAvailability",
                         "score": 0,
                         "is_scored": false,
                         "max_score": 30
                     },
                     {
-                        "metric": "https://data.norge.no/vocabulary/dcatno-mqa#spatialAvailability",
+                        "id": "https://data.norge.no/vocabulary/dcatno-mqa#spatialAvailability",
                         "score": 0,
                         "is_scored": false,
                         "max_score": 20
                     },
                     {
-                        "metric": "https://data.norge.no/vocabulary/dcatno-mqa#temporalAvailability",
+                        "id": "https://data.norge.no/vocabulary/dcatno-mqa#temporalAvailability",
                         "score": 0,
                         "is_scored": false,
                         "max_score": 20
@@ -90,52 +90,52 @@
                 "max_score": 100
             },
             {
-                "name": "https://data.norge.no/vocabulary/dcatno-mqa#interoperability",
+                "id": "https://data.norge.no/vocabulary/dcatno-mqa#interoperability",
                 "metrics": [
                     {
-                        "metric": "https://data.norge.no/vocabulary/dcatno-mqa#dcatApCompliance",
+                        "id": "https://data.norge.no/vocabulary/dcatno-mqa#dcatApCompliance",
                         "score": 0,
                         "is_scored": false,
                         "max_score": 30
                     },
                     {
-                        "metric": "https://data.norge.no/vocabulary/dcatno-mqa#formatAvailability",
+                        "id": "https://data.norge.no/vocabulary/dcatno-mqa#formatAvailability",
                         "score": 0,
                         "is_scored": true,
                         "max_score": 20
                     },
                     {
-                        "metric": "https://data.norge.no/vocabulary/dcatno-mqa#formatMatch",
+                        "id": "https://data.norge.no/vocabulary/dcatno-mqa#formatMatch",
                         "score": 0,
                         "is_scored": false,
                         "max_score": 15
                     },
                     {
-                        "metric": "https://data.norge.no/vocabulary/dcatno-mqa#formatMediaTypeMachineInterpretable",
+                        "id": "https://data.norge.no/vocabulary/dcatno-mqa#formatMediaTypeMachineInterpretable",
                         "score": 0,
                         "is_scored": false,
                         "max_score": 20
                     },
                     {
-                        "metric": "https://data.norge.no/vocabulary/dcatno-mqa#formatMediaTypeNonProprietary",
+                        "id": "https://data.norge.no/vocabulary/dcatno-mqa#formatMediaTypeNonProprietary",
                         "score": 0,
                         "is_scored": false,
                         "max_score": 20
                     },
                     {
-                        "metric": "https://data.norge.no/vocabulary/dcatno-mqa#formatMediaTypeVocabularyAlignment",
+                        "id": "https://data.norge.no/vocabulary/dcatno-mqa#formatMediaTypeVocabularyAlignment",
                         "score": 0,
                         "is_scored": false,
                         "max_score": 10
                     },
                     {
-                        "metric": "https://data.norge.no/vocabulary/dcatno-mqa#mediaTypeAvailability",
+                        "id": "https://data.norge.no/vocabulary/dcatno-mqa#mediaTypeAvailability",
                         "score": 0,
                         "is_scored": false,
                         "max_score": 10
                     },
                     {
-                        "metric": "https://data.norge.no/vocabulary/dcatno-mqa#syntaxValid",
+                        "id": "https://data.norge.no/vocabulary/dcatno-mqa#syntaxValid",
                         "score": 0,
                         "is_scored": false,
                         "max_score": 15
@@ -145,40 +145,40 @@
                 "max_score": 140
             },
             {
-                "name": "https://data.norge.no/vocabulary/dcatno-mqa#reusability",
+                "id": "https://data.norge.no/vocabulary/dcatno-mqa#reusability",
                 "metrics": [
                     {
-                        "metric": "https://data.norge.no/vocabulary/dcatno-mqa#accessRightsAvailability",
+                        "id": "https://data.norge.no/vocabulary/dcatno-mqa#accessRightsAvailability",
                         "score": 0,
                         "is_scored": false,
                         "max_score": 10
                     },
                     {
-                        "metric": "https://data.norge.no/vocabulary/dcatno-mqa#accessRightsVocabularyAlignment",
+                        "id": "https://data.norge.no/vocabulary/dcatno-mqa#accessRightsVocabularyAlignment",
                         "score": 0,
                         "is_scored": false,
                         "max_score": 5
                     },
                     {
-                        "metric": "https://data.norge.no/vocabulary/dcatno-mqa#contactPointAvailability",
+                        "id": "https://data.norge.no/vocabulary/dcatno-mqa#contactPointAvailability",
                         "score": 0,
                         "is_scored": false,
                         "max_score": 20
                     },
                     {
-                        "metric": "https://data.norge.no/vocabulary/dcatno-mqa#knownLicence",
+                        "id": "https://data.norge.no/vocabulary/dcatno-mqa#knownLicence",
                         "score": 0,
                         "is_scored": false,
                         "max_score": 10
                     },
                     {
-                        "metric": "https://data.norge.no/vocabulary/dcatno-mqa#licenceAvailability",
+                        "id": "https://data.norge.no/vocabulary/dcatno-mqa#licenceAvailability",
                         "score": 0,
                         "is_scored": false,
                         "max_score": 20
                     },
                     {
-                        "metric": "https://data.norge.no/vocabulary/dcatno-mqa#publisherAvailability",
+                        "id": "https://data.norge.no/vocabulary/dcatno-mqa#publisherAvailability",
                         "score": 0,
                         "is_scored": false,
                         "max_score": 10
@@ -193,25 +193,25 @@
     },
     "distributions": [
         {
-            "name": "https://distribution.a",
+            "id": "https://distribution.a",
             "dimensions": [
                 {
-                    "name": "https://data.norge.no/vocabulary/dcatno-mqa#accessibility",
+                    "id": "https://data.norge.no/vocabulary/dcatno-mqa#accessibility",
                     "metrics": [
                         {
-                            "metric": "https://data.norge.no/vocabulary/dcatno-mqa#accessUrlStatusCode",
+                            "id": "https://data.norge.no/vocabulary/dcatno-mqa#accessUrlStatusCode",
                             "score": 50,
                             "is_scored": true,
                             "max_score": 50
                         },
                         {
-                            "metric": "https://data.norge.no/vocabulary/dcatno-mqa#downloadUrlAvailability",
+                            "id": "https://data.norge.no/vocabulary/dcatno-mqa#downloadUrlAvailability",
                             "score": 0,
                             "is_scored": false,
                             "max_score": 20
                         },
                         {
-                            "metric": "https://data.norge.no/vocabulary/dcatno-mqa#downloadUrlStatusCode",
+                            "id": "https://data.norge.no/vocabulary/dcatno-mqa#downloadUrlStatusCode",
                             "score": 0,
                             "is_scored": false,
                             "max_score": 30
@@ -221,28 +221,28 @@
                     "max_score": 100
                 },
                 {
-                    "name": "https://data.norge.no/vocabulary/dcatno-mqa#contextuality",
+                    "id": "https://data.norge.no/vocabulary/dcatno-mqa#contextuality",
                     "metrics": [
                         {
-                            "metric": "https://data.norge.no/vocabulary/dcatno-mqa#byteSizeAvailability",
+                            "id": "https://data.norge.no/vocabulary/dcatno-mqa#byteSizeAvailability",
                             "score": 0,
                             "is_scored": false,
                             "max_score": 5
                         },
                         {
-                            "metric": "https://data.norge.no/vocabulary/dcatno-mqa#dateIssuedAvailability",
+                            "id": "https://data.norge.no/vocabulary/dcatno-mqa#dateIssuedAvailability",
                             "score": 0,
                             "is_scored": false,
                             "max_score": 5
                         },
                         {
-                            "metric": "https://data.norge.no/vocabulary/dcatno-mqa#dateModifiedAvailability",
+                            "id": "https://data.norge.no/vocabulary/dcatno-mqa#dateModifiedAvailability",
                             "score": 0,
                             "is_scored": false,
                             "max_score": 5
                         },
                         {
-                            "metric": "https://data.norge.no/vocabulary/dcatno-mqa#rightsAvailability",
+                            "id": "https://data.norge.no/vocabulary/dcatno-mqa#rightsAvailability",
                             "score": 0,
                             "is_scored": false,
                             "max_score": 5
@@ -252,28 +252,28 @@
                     "max_score": 20
                 },
                 {
-                    "name": "https://data.norge.no/vocabulary/dcatno-mqa#findability",
+                    "id": "https://data.norge.no/vocabulary/dcatno-mqa#findability",
                     "metrics": [
                         {
-                            "metric": "https://data.norge.no/vocabulary/dcatno-mqa#categoryAvailability",
+                            "id": "https://data.norge.no/vocabulary/dcatno-mqa#categoryAvailability",
                             "score": 0,
                             "is_scored": false,
                             "max_score": 30
                         },
                         {
-                            "metric": "https://data.norge.no/vocabulary/dcatno-mqa#keywordAvailability",
+                            "id": "https://data.norge.no/vocabulary/dcatno-mqa#keywordAvailability",
                             "score": 0,
                             "is_scored": false,
                             "max_score": 30
                         },
                         {
-                            "metric": "https://data.norge.no/vocabulary/dcatno-mqa#spatialAvailability",
+                            "id": "https://data.norge.no/vocabulary/dcatno-mqa#spatialAvailability",
                             "score": 0,
                             "is_scored": false,
                             "max_score": 20
                         },
                         {
-                            "metric": "https://data.norge.no/vocabulary/dcatno-mqa#temporalAvailability",
+                            "id": "https://data.norge.no/vocabulary/dcatno-mqa#temporalAvailability",
                             "score": 0,
                             "is_scored": false,
                             "max_score": 20
@@ -283,52 +283,52 @@
                     "max_score": 100
                 },
                 {
-                    "name": "https://data.norge.no/vocabulary/dcatno-mqa#interoperability",
+                    "id": "https://data.norge.no/vocabulary/dcatno-mqa#interoperability",
                     "metrics": [
                         {
-                            "metric": "https://data.norge.no/vocabulary/dcatno-mqa#dcatApCompliance",
+                            "id": "https://data.norge.no/vocabulary/dcatno-mqa#dcatApCompliance",
                             "score": 0,
                             "is_scored": false,
                             "max_score": 30
                         },
                         {
-                            "metric": "https://data.norge.no/vocabulary/dcatno-mqa#formatAvailability",
+                            "id": "https://data.norge.no/vocabulary/dcatno-mqa#formatAvailability",
                             "score": 0,
                             "is_scored": true,
                             "max_score": 20
                         },
                         {
-                            "metric": "https://data.norge.no/vocabulary/dcatno-mqa#formatMatch",
+                            "id": "https://data.norge.no/vocabulary/dcatno-mqa#formatMatch",
                             "score": 0,
                             "is_scored": false,
                             "max_score": 15
                         },
                         {
-                            "metric": "https://data.norge.no/vocabulary/dcatno-mqa#formatMediaTypeMachineInterpretable",
+                            "id": "https://data.norge.no/vocabulary/dcatno-mqa#formatMediaTypeMachineInterpretable",
                             "score": 0,
                             "is_scored": false,
                             "max_score": 20
                         },
                         {
-                            "metric": "https://data.norge.no/vocabulary/dcatno-mqa#formatMediaTypeNonProprietary",
+                            "id": "https://data.norge.no/vocabulary/dcatno-mqa#formatMediaTypeNonProprietary",
                             "score": 0,
                             "is_scored": false,
                             "max_score": 20
                         },
                         {
-                            "metric": "https://data.norge.no/vocabulary/dcatno-mqa#formatMediaTypeVocabularyAlignment",
+                            "id": "https://data.norge.no/vocabulary/dcatno-mqa#formatMediaTypeVocabularyAlignment",
                             "score": 0,
                             "is_scored": false,
                             "max_score": 10
                         },
                         {
-                            "metric": "https://data.norge.no/vocabulary/dcatno-mqa#mediaTypeAvailability",
+                            "id": "https://data.norge.no/vocabulary/dcatno-mqa#mediaTypeAvailability",
                             "score": 0,
                             "is_scored": false,
                             "max_score": 10
                         },
                         {
-                            "metric": "https://data.norge.no/vocabulary/dcatno-mqa#syntaxValid",
+                            "id": "https://data.norge.no/vocabulary/dcatno-mqa#syntaxValid",
                             "score": 0,
                             "is_scored": false,
                             "max_score": 15
@@ -338,40 +338,40 @@
                     "max_score": 140
                 },
                 {
-                    "name": "https://data.norge.no/vocabulary/dcatno-mqa#reusability",
+                    "id": "https://data.norge.no/vocabulary/dcatno-mqa#reusability",
                     "metrics": [
                         {
-                            "metric": "https://data.norge.no/vocabulary/dcatno-mqa#accessRightsAvailability",
+                            "id": "https://data.norge.no/vocabulary/dcatno-mqa#accessRightsAvailability",
                             "score": 0,
                             "is_scored": false,
                             "max_score": 10
                         },
                         {
-                            "metric": "https://data.norge.no/vocabulary/dcatno-mqa#accessRightsVocabularyAlignment",
+                            "id": "https://data.norge.no/vocabulary/dcatno-mqa#accessRightsVocabularyAlignment",
                             "score": 0,
                             "is_scored": false,
                             "max_score": 5
                         },
                         {
-                            "metric": "https://data.norge.no/vocabulary/dcatno-mqa#contactPointAvailability",
+                            "id": "https://data.norge.no/vocabulary/dcatno-mqa#contactPointAvailability",
                             "score": 0,
                             "is_scored": false,
                             "max_score": 20
                         },
                         {
-                            "metric": "https://data.norge.no/vocabulary/dcatno-mqa#knownLicence",
+                            "id": "https://data.norge.no/vocabulary/dcatno-mqa#knownLicence",
                             "score": 0,
                             "is_scored": false,
                             "max_score": 10
                         },
                         {
-                            "metric": "https://data.norge.no/vocabulary/dcatno-mqa#licenceAvailability",
+                            "id": "https://data.norge.no/vocabulary/dcatno-mqa#licenceAvailability",
                             "score": 0,
                             "is_scored": false,
                             "max_score": 20
                         },
                         {
-                            "metric": "https://data.norge.no/vocabulary/dcatno-mqa#publisherAvailability",
+                            "id": "https://data.norge.no/vocabulary/dcatno-mqa#publisherAvailability",
                             "score": 0,
                             "is_scored": false,
                             "max_score": 10
@@ -385,25 +385,25 @@
             "max_score": 435
         },
         {
-            "name": "https://distribution.b",
+            "id": "https://distribution.b",
             "dimensions": [
                 {
-                    "name": "https://data.norge.no/vocabulary/dcatno-mqa#accessibility",
+                    "id": "https://data.norge.no/vocabulary/dcatno-mqa#accessibility",
                     "metrics": [
                         {
-                            "metric": "https://data.norge.no/vocabulary/dcatno-mqa#accessUrlStatusCode",
+                            "id": "https://data.norge.no/vocabulary/dcatno-mqa#accessUrlStatusCode",
                             "score": 0,
                             "is_scored": false,
                             "max_score": 50
                         },
                         {
-                            "metric": "https://data.norge.no/vocabulary/dcatno-mqa#downloadUrlAvailability",
+                            "id": "https://data.norge.no/vocabulary/dcatno-mqa#downloadUrlAvailability",
                             "score": 0,
                             "is_scored": false,
                             "max_score": 20
                         },
                         {
-                            "metric": "https://data.norge.no/vocabulary/dcatno-mqa#downloadUrlStatusCode",
+                            "id": "https://data.norge.no/vocabulary/dcatno-mqa#downloadUrlStatusCode",
                             "score": 0,
                             "is_scored": false,
                             "max_score": 30
@@ -413,28 +413,28 @@
                     "max_score": 100
                 },
                 {
-                    "name": "https://data.norge.no/vocabulary/dcatno-mqa#contextuality",
+                    "id": "https://data.norge.no/vocabulary/dcatno-mqa#contextuality",
                     "metrics": [
                         {
-                            "metric": "https://data.norge.no/vocabulary/dcatno-mqa#byteSizeAvailability",
+                            "id": "https://data.norge.no/vocabulary/dcatno-mqa#byteSizeAvailability",
                             "score": 0,
                             "is_scored": false,
                             "max_score": 5
                         },
                         {
-                            "metric": "https://data.norge.no/vocabulary/dcatno-mqa#dateIssuedAvailability",
+                            "id": "https://data.norge.no/vocabulary/dcatno-mqa#dateIssuedAvailability",
                             "score": 0,
                             "is_scored": false,
                             "max_score": 5
                         },
                         {
-                            "metric": "https://data.norge.no/vocabulary/dcatno-mqa#dateModifiedAvailability",
+                            "id": "https://data.norge.no/vocabulary/dcatno-mqa#dateModifiedAvailability",
                             "score": 0,
                             "is_scored": false,
                             "max_score": 5
                         },
                         {
-                            "metric": "https://data.norge.no/vocabulary/dcatno-mqa#rightsAvailability",
+                            "id": "https://data.norge.no/vocabulary/dcatno-mqa#rightsAvailability",
                             "score": 0,
                             "is_scored": false,
                             "max_score": 5
@@ -444,28 +444,28 @@
                     "max_score": 20
                 },
                 {
-                    "name": "https://data.norge.no/vocabulary/dcatno-mqa#findability",
+                    "id": "https://data.norge.no/vocabulary/dcatno-mqa#findability",
                     "metrics": [
                         {
-                            "metric": "https://data.norge.no/vocabulary/dcatno-mqa#categoryAvailability",
+                            "id": "https://data.norge.no/vocabulary/dcatno-mqa#categoryAvailability",
                             "score": 0,
                             "is_scored": false,
                             "max_score": 30
                         },
                         {
-                            "metric": "https://data.norge.no/vocabulary/dcatno-mqa#keywordAvailability",
+                            "id": "https://data.norge.no/vocabulary/dcatno-mqa#keywordAvailability",
                             "score": 0,
                             "is_scored": false,
                             "max_score": 30
                         },
                         {
-                            "metric": "https://data.norge.no/vocabulary/dcatno-mqa#spatialAvailability",
+                            "id": "https://data.norge.no/vocabulary/dcatno-mqa#spatialAvailability",
                             "score": 0,
                             "is_scored": false,
                             "max_score": 20
                         },
                         {
-                            "metric": "https://data.norge.no/vocabulary/dcatno-mqa#temporalAvailability",
+                            "id": "https://data.norge.no/vocabulary/dcatno-mqa#temporalAvailability",
                             "score": 0,
                             "is_scored": false,
                             "max_score": 20
@@ -475,52 +475,52 @@
                     "max_score": 100
                 },
                 {
-                    "name": "https://data.norge.no/vocabulary/dcatno-mqa#interoperability",
+                    "id": "https://data.norge.no/vocabulary/dcatno-mqa#interoperability",
                     "metrics": [
                         {
-                            "metric": "https://data.norge.no/vocabulary/dcatno-mqa#dcatApCompliance",
+                            "id": "https://data.norge.no/vocabulary/dcatno-mqa#dcatApCompliance",
                             "score": 0,
                             "is_scored": false,
                             "max_score": 30
                         },
                         {
-                            "metric": "https://data.norge.no/vocabulary/dcatno-mqa#formatAvailability",
+                            "id": "https://data.norge.no/vocabulary/dcatno-mqa#formatAvailability",
                             "score": 20,
                             "is_scored": true,
                             "max_score": 20
                         },
                         {
-                            "metric": "https://data.norge.no/vocabulary/dcatno-mqa#formatMatch",
+                            "id": "https://data.norge.no/vocabulary/dcatno-mqa#formatMatch",
                             "score": 0,
                             "is_scored": false,
                             "max_score": 15
                         },
                         {
-                            "metric": "https://data.norge.no/vocabulary/dcatno-mqa#formatMediaTypeMachineInterpretable",
+                            "id": "https://data.norge.no/vocabulary/dcatno-mqa#formatMediaTypeMachineInterpretable",
                             "score": 0,
                             "is_scored": false,
                             "max_score": 20
                         },
                         {
-                            "metric": "https://data.norge.no/vocabulary/dcatno-mqa#formatMediaTypeNonProprietary",
+                            "id": "https://data.norge.no/vocabulary/dcatno-mqa#formatMediaTypeNonProprietary",
                             "score": 0,
                             "is_scored": false,
                             "max_score": 20
                         },
                         {
-                            "metric": "https://data.norge.no/vocabulary/dcatno-mqa#formatMediaTypeVocabularyAlignment",
+                            "id": "https://data.norge.no/vocabulary/dcatno-mqa#formatMediaTypeVocabularyAlignment",
                             "score": 0,
                             "is_scored": false,
                             "max_score": 10
                         },
                         {
-                            "metric": "https://data.norge.no/vocabulary/dcatno-mqa#mediaTypeAvailability",
+                            "id": "https://data.norge.no/vocabulary/dcatno-mqa#mediaTypeAvailability",
                             "score": 0,
                             "is_scored": false,
                             "max_score": 10
                         },
                         {
-                            "metric": "https://data.norge.no/vocabulary/dcatno-mqa#syntaxValid",
+                            "id": "https://data.norge.no/vocabulary/dcatno-mqa#syntaxValid",
                             "score": 0,
                             "is_scored": false,
                             "max_score": 15
@@ -530,40 +530,40 @@
                     "max_score": 140
                 },
                 {
-                    "name": "https://data.norge.no/vocabulary/dcatno-mqa#reusability",
+                    "id": "https://data.norge.no/vocabulary/dcatno-mqa#reusability",
                     "metrics": [
                         {
-                            "metric": "https://data.norge.no/vocabulary/dcatno-mqa#accessRightsAvailability",
+                            "id": "https://data.norge.no/vocabulary/dcatno-mqa#accessRightsAvailability",
                             "score": 0,
                             "is_scored": false,
                             "max_score": 10
                         },
                         {
-                            "metric": "https://data.norge.no/vocabulary/dcatno-mqa#accessRightsVocabularyAlignment",
+                            "id": "https://data.norge.no/vocabulary/dcatno-mqa#accessRightsVocabularyAlignment",
                             "score": 0,
                             "is_scored": false,
                             "max_score": 5
                         },
                         {
-                            "metric": "https://data.norge.no/vocabulary/dcatno-mqa#contactPointAvailability",
+                            "id": "https://data.norge.no/vocabulary/dcatno-mqa#contactPointAvailability",
                             "score": 0,
                             "is_scored": false,
                             "max_score": 20
                         },
                         {
-                            "metric": "https://data.norge.no/vocabulary/dcatno-mqa#knownLicence",
+                            "id": "https://data.norge.no/vocabulary/dcatno-mqa#knownLicence",
                             "score": 0,
                             "is_scored": false,
                             "max_score": 10
                         },
                         {
-                            "metric": "https://data.norge.no/vocabulary/dcatno-mqa#licenceAvailability",
+                            "id": "https://data.norge.no/vocabulary/dcatno-mqa#licenceAvailability",
                             "score": 0,
                             "is_scored": false,
                             "max_score": 20
                         },
                         {
-                            "metric": "https://data.norge.no/vocabulary/dcatno-mqa#publisherAvailability",
+                            "id": "https://data.norge.no/vocabulary/dcatno-mqa#publisherAvailability",
                             "score": 0,
                             "is_scored": false,
                             "max_score": 10
