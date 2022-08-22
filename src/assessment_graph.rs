@@ -308,6 +308,16 @@ impl AssessmentGraph {
             graph_name: GraphNameRef::DefaultGraph.into(),
         };
 
+        // If property already exists, delete existing.
+        for quad in self.0.quads_for_pattern(
+            Some(entry.subject.as_ref()),
+            Some(entry.predicate.as_ref()),
+            None,
+            GraphNameRef::DefaultGraph.into(),
+        ) {
+            self.0.remove(&quad?)?;
+        }
+
         self.0.insert(&entry)?;
         Ok(())
     }
