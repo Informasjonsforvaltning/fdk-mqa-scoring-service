@@ -80,6 +80,7 @@ dcatno-mqa:syntaxValid
 
 
 # Reusability
+
 dcatno-mqa:licenseAvailability
     dcatno-mqa:trueScore            "20"^^xsd:integer .
 
