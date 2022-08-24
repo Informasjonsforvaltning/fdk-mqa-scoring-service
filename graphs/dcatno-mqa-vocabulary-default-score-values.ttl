@@ -81,10 +81,10 @@ dcatno-mqa:syntaxValid
 
 # Reusability
 
-dcatno-mqa:licenceAvailability
+dcatno-mqa:licenseAvailability
     dcatno-mqa:trueScore            "20"^^xsd:integer .
 
-dcatno-mqa:knownLicence
+dcatno-mqa:knownLicense
     dcatno-mqa:trueScore            "10"^^xsd:integer .
 
 dcatno-mqa:accessRightsAvailability
