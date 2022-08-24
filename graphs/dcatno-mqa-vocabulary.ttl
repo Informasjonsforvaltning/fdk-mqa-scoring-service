@@ -222,13 +222,13 @@ dcatno-mqa:interoperabilityScoring
 
 # Reusability
 
-dcatno-mqa:licenceAvailability
+dcatno-mqa:licenseAvailability
     a                       dqv:Metric ;
     skos:definition         "It is checked whether dct:license is specified in a distribution."@en ;
     dqv:expectedDataType    xsd:boolean ;
     dqv:inDimension         dcatno-mqa:reusability .
 
-dcatno-mqa:knownLicence
+dcatno-mqa:knownLicense
     a                       dqv:Metric ;
     skos:definition         "It is checked if a distribution&apos;s licence is part of a predefined collection."@en ;
     dqv:expectedDataType    xsd:boolean ;
