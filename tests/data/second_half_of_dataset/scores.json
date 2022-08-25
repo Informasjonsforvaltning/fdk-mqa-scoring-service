@@ -166,13 +166,13 @@
                         "max_score": 20
                     },
                     {
-                        "id": "https://data.norge.no/vocabulary/dcatno-mqa#knownLicence",
+                        "id": "https://data.norge.no/vocabulary/dcatno-mqa#knownLicense",
                         "score": 0,
                         "is_scored": false,
                         "max_score": 10
                     },
                     {
-                        "id": "https://data.norge.no/vocabulary/dcatno-mqa#licenceAvailability",
+                        "id": "https://data.norge.no/vocabulary/dcatno-mqa#licenseAvailability",
                         "score": 0,
                         "is_scored": false,
                         "max_score": 20
@@ -359,13 +359,13 @@
                             "max_score": 20
                         },
                         {
-                            "id": "https://data.norge.no/vocabulary/dcatno-mqa#knownLicence",
+                            "id": "https://data.norge.no/vocabulary/dcatno-mqa#knownLicense",
                             "score": 0,
                             "is_scored": false,
                             "max_score": 10
                         },
                         {
-                            "id": "https://data.norge.no/vocabulary/dcatno-mqa#licenceAvailability",
+                            "id": "https://data.norge.no/vocabulary/dcatno-mqa#licenseAvailability",
                             "score": 0,
                             "is_scored": false,
                             "max_score": 20
@@ -551,13 +551,13 @@
                             "max_score": 20
                         },
                         {
-                            "id": "https://data.norge.no/vocabulary/dcatno-mqa#knownLicence",
+                            "id": "https://data.norge.no/vocabulary/dcatno-mqa#knownLicense",
                             "score": 0,
                             "is_scored": false,
                             "max_score": 10
                         },
                         {
-                            "id": "https://data.norge.no/vocabulary/dcatno-mqa#licenceAvailability",
+                            "id": "https://data.norge.no/vocabulary/dcatno-mqa#licenseAvailability",
                             "score": 0,
                             "is_scored": false,
                             "max_score": 20
