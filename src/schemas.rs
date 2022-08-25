@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-pub enum Event {
+pub enum InputEvent {
     MqaEvent(MqaEvent),
     Unknown { namespace: String, name: String },
 }
