@@ -22,15 +22,13 @@ use schema_registry_converter::{
 };
 use serde::Serialize;
 
-/// Consumes all messages in all subscribed topics and drops their content.
+/// Consumes all messages and drops their content.
 pub async fn consume_all_messages(consumer: &StreamConsumer) -> Result<(), KafkaError> {
-    let timeout_duration = Duration::from_millis(500);
     loop {
-        match tokio::time::timeout(timeout_duration, consumer.recv()).await {
-            // Consume message and commit offset.
-            Ok(message) => consumer.commit_message(&message?, CommitMode::Sync)?,
-            // Timeout, no more messages to consume.
-            Err(_) => return Ok(()),
+        // Loop untill no nessage can be received within timeout.
+        let timeout_duration = Duration::from_millis(500);
+        if let None = consume_single_message(consumer, timeout_duration).await? {
+            return Ok(());
         }
     }
 }
@@ -38,28 +36,30 @@ pub async fn consume_all_messages(consumer: &StreamConsumer) -> Result<(), Kafka
 /// Consumes and returns a single message, if received within the timeout period.
 pub async fn consume_single_message(
     consumer: &StreamConsumer,
+    timeout_duration: Duration,
 ) -> Result<Option<BorrowedMessage>, KafkaError> {
-    let timeout_duration = Duration::from_millis(1000);
     match tokio::time::timeout(timeout_duration, consumer.recv()).await {
-        Ok(Ok(message)) => {
+        Ok(result) => {
+            let message = result?;
+            // Commit offset back to kafka.
             consumer.commit_message(&message, CommitMode::Sync)?;
             Ok(Some(message))
         }
-        Ok(Err(e)) => Err(e),
-        // Timeout.
+        // Timeout while trying to receive new message.
         Err(_) => Ok(None),
     }
 }
+
 pub async fn process_single_message(consumer: StreamConsumer) -> Result<(), Error> {
     let mut decoder = AvroDecoder::new(sr_settings());
     let score_definitions = ScoreGraph::new()?.scores()?;
     let assessment_graph = AssessmentGraph::new()?;
     let http_client = reqwest::Client::new();
 
-    // Attempt to receive message for 3s before aborting with an error
-    let message = consume_single_message(&consumer)
+    let timeout_duration = Duration::from_millis(3000);
+    let message = consume_single_message(&consumer, timeout_duration)
         .await?
-        .expect("no message received");
+        .expect("no message received within timeout duration");
 
     handle_message(
         &mut decoder,

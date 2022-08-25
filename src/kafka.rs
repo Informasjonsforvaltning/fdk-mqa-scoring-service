@@ -25,7 +25,7 @@ use crate::{
     error::Error,
     json_conversion::{convert_scores, UpdateRequest},
     metrics::{PROCESSED_MESSAGES, PROCESSING_TIME},
-    schemas::{Event, MqaEvent, MqaEventType},
+    schemas::{InputEvent, MqaEvent, MqaEventType},
     score::calculate_score,
     score_graph::{ScoreDefinitions, ScoreGraph},
 };
@@ -154,7 +154,7 @@ pub async fn handle_message(
     message: &BorrowedMessage<'_>,
 ) -> Result<(), Error> {
     match decode_message(decoder, message).await? {
-        Event::MqaEvent(event) => {
+        InputEvent::MqaEvent(event) => {
             let span = tracing::span!(
                 Level::INFO,
                 "event",
@@ -167,7 +167,7 @@ pub async fn handle_message(
                 .await
                 .map_err(|e| e.to_string())?;
         }
-        Event::Unknown { namespace, name } => {
+        InputEvent::Unknown { namespace, name } => {
             tracing::warn!(namespace, name, "skipping unknown event");
         }
     }
@@ -177,7 +177,7 @@ pub async fn handle_message(
 async fn decode_message(
     decoder: &mut AvroDecoder<'_>,
     message: &BorrowedMessage<'_>,
-) -> Result<Event, Error> {
+) -> Result<InputEvent, Error> {
     match decoder.decode(message.payload()).await? {
         DecodeResult {
             name:
@@ -190,9 +190,9 @@ async fn decode_message(
         } => {
             let event = match (namespace.as_str(), name.as_str()) {
                 ("no.fdk.mqa", "MQAEvent") => {
-                    Event::MqaEvent(avro_rs::from_value::<MqaEvent>(&value)?)
+                    InputEvent::MqaEvent(avro_rs::from_value::<MqaEvent>(&value)?)
                 }
-                _ => Event::Unknown { namespace, name },
+                _ => InputEvent::Unknown { namespace, name },
             };
             Ok(event)
         }
