@@ -117,23 +117,36 @@ async fn receive_message(
     message: &BorrowedMessage<'_>,
 ) {
     let start_time = Instant::now();
-    let result = handle_message(
-        decoder,
-        score_definitions,
-        assessment_graph,
-        http_client,
-        message,
-    )
-    .await;
+    let mut attempts = 0;
+    let mut result: Result<(), Error> = Err("handle_message not attempted".into());
+
+    for _ in 0..5 {
+        attempts += 1;
+        result = handle_message(
+            decoder,
+            score_definitions,
+            assessment_graph,
+            http_client,
+            message,
+        )
+        .await;
+
+        if let Ok(_) = result {
+            break;
+        }
+        tokio::time::sleep(Duration::from_millis(3000)).await;
+    }
     let elapsed_millis = start_time.elapsed().as_millis();
+
     match result {
         Ok(_) => {
-            tracing::info!(elapsed_millis, "message handled successfully");
+            tracing::info!(elapsed_millis, attempts, "message handled successfully");
             PROCESSED_MESSAGES.with_label_values(&["success"]).inc();
         }
         Err(e) => {
             tracing::error!(
                 elapsed_millis,
+                attempts,
                 error = e.to_string(),
                 "failed while handling message"
             );
