@@ -11,6 +11,10 @@ use futures::{
     FutureExt,
 };
 
+lazy_static! {
+    pub static ref LOG_LEVEL: String = env::var("LOG_LEVEL").unwrap_or("INFO".to_string());
+}
+
 #[get("/ping")]
 async fn ping() -> impl Responder {
     "pong"
@@ -36,7 +40,7 @@ async fn metrics() -> impl Responder {
 async fn main() {
     tracing_subscriber::fmt()
         .json()
-        .with_max_level(tracing::Level::INFO)
+        .with_max_level(tracing::Level::from_str(&env_log_level).unwrap())
         .with_target(false)
         .with_current_span(false)
         .init();
