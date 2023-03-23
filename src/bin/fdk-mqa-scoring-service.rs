@@ -36,7 +36,7 @@ async fn metrics() -> impl Responder {
 async fn main() {
     tracing_subscriber::fmt()
         .json()
-        .with_max_level(tracing::Level::INFO)
+        .with_max_level(tracing::Level::DEBUG)
         .with_target(false)
         .with_current_span(false)
         .init();
