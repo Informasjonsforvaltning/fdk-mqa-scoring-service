@@ -54,6 +54,8 @@ pub fn calculate_score(
         dataset.assessment.as_ref(),
     )?;
 
+    tracing::debug!(dataset_dimensions = format!("{:?}", dataset_dimensions), "node_dimension_scores");    
+
     let distributions = measurement_graph.distributions()?;
     let distribution_scores: Vec<Score> = distributions
         .into_iter()

@@ -262,8 +262,7 @@ async fn handle_mqa_event(
             let (dataset_score, distribution_scores) =
                 calculate_score(&assessment_graph, &score_definitions)?;
             let scores = convert_scores(&score_definitions, &dataset_score, &distribution_scores);
-            tracing::debug!(scores = format!("{:?}", scores), "converted scores for {fdk_id}");
-
+            
             assessment_graph.insert_scores(&vec![dataset_score])?;
             assessment_graph.insert_scores(&distribution_scores)?;
 
