@@ -3,7 +3,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-use avro_rs::schema::Name;
+use apache_avro::schema::Name;
 use lazy_static::lazy_static;
 use rdkafka::{
     config::RDKafkaLogLevel,
@@ -203,7 +203,7 @@ async fn decode_message(
         } => {
             let event = match (namespace.as_str(), name.as_str()) {
                 ("no.fdk.mqa", "MQAEvent") => {
-                    InputEvent::MqaEvent(avro_rs::from_value::<MqaEvent>(&value)?)
+                    InputEvent::MqaEvent(apache_avro::from_value::<MqaEvent>(&value)?)
                 }
                 _ => InputEvent::Unknown { namespace, name },
             };
