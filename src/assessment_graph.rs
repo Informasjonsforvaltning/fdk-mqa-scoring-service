@@ -151,11 +151,11 @@ impl AssessmentGraph {
 
     /// Inserts modification timestamp.
     pub fn insert_modified_timestmap(&self, timestamp: i64) -> Result<(), Error> {
-        let timestamp = DateTime::<Utc>::from_utc(
-            NaiveDateTime::from_timestamp(
+        let timestamp = DateTime::<Utc>::from_naive_utc_and_offset(
+            NaiveDateTime::from_timestamp_opt(
                 timestamp / 1000,
                 ((timestamp % 1000) * 1_000_000) as u32,
-            ),
+            ).expect("Invalid modified timestamp"),
             Utc,
         )
         .format("%Y-%m-%d %H:%M:%S%.f %z")
