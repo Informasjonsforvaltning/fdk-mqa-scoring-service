@@ -50,7 +50,7 @@ pub fn create_sr_settings() -> Result<SrSettings, Error> {
     });
 
     let sr_settings = sr_settings_builder
-        .set_timeout(Duration::from_secs(5))
+        .set_timeout(Duration::from_secs(30))
         .build()?;
     Ok(sr_settings)
 }
@@ -66,6 +66,7 @@ pub fn create_consumer() -> Result<StreamConsumer, KafkaError> {
         .set("auto.offset.reset", "beginning")
         .set("api.version.request", "false")
         .set("security.protocol", "plaintext")
+        .set("max.partition.fetch.bytes", "2097152")
         .create()?;
     consumer.subscribe(&[&INPUT_TOPIC])?;
     Ok(consumer)
