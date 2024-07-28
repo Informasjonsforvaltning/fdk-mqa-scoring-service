@@ -20,7 +20,7 @@ schema_registry_converter = { version = "4.0.0", features = ["avro", "blocking"]
 serde = "1.0.192"
 serde_derive = "1.0.192"
 serde_json = "1.0.108"
-sophia = "0.7.2"
+sophia = "0.8.0"
 sophia_jsonld = "0.7.2"
 thiserror = "1.0"
 tokio = { version = "1.35.0", features = ["full"] }
