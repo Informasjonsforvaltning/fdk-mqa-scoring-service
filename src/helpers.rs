@@ -1,12 +1,11 @@
 use std::fs;
 
 use oxigraph::{
-    io::GraphFormat,
+    io::{RdfFormat, RdfParser},
     model::{GraphNameRef, NamedNode, Quad, Subject, Term},
     sparql::{QueryResults, QuerySolution},
     store::{StorageError, Store},
 };
-
 use crate::error::Error;
 
 // Executes SPARQL SELECT query on store.
@@ -30,11 +29,11 @@ pub fn load_files(fnames: Vec<&str>) -> Result<Vec<String>, Error> {
 pub fn parse_graphs<G: ToString>(graphs: Vec<G>) -> Result<Store, Error> {
     let store = oxigraph::store::Store::new()?;
     for graph in graphs {
-        store.load_graph(
-            graph.to_string().as_ref(),
-            GraphFormat::Turtle,
-            GraphNameRef::DefaultGraph,
-            None,
+        store.load_from_reader(
+            RdfParser::from_format(RdfFormat::Turtle)
+                .without_named_graphs()
+                .with_default_graph(GraphNameRef::DefaultGraph),
+            graph.to_string().as_bytes().as_ref()
         )?;
     }
     Ok(store)

@@ -278,7 +278,7 @@ mod tests {
             ],
             score: 20,
         };
-        assert_eq!(distribution_scores, vec![a.clone(), b.clone()]);
+        assert_eq!(distribution_scores, vec![b.clone(), a.clone()]);
         assert_eq!(best_score(distribution_scores), Some(a));
     }
 }
