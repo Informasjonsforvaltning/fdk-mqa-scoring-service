@@ -153,45 +153,6 @@ mod tests {
             },
             distributions: vec![
                 Score {
-                    id: "https://distribution.a".to_string(),
-                    dimensions: vec![
-                        DimensionScore {
-                            id: "https://data.norge.no/vocabulary/dcatno-mqa#accessibility".to_string(),
-                            metrics: vec![
-                                MetricScore {
-                                    id: "https://data.norge.no/vocabulary/dcatno-mqa#accessUrlStatusCode".to_string(),
-                                    score: 50,
-                                    is_scored: true,
-                                    max_score: 50,
-                                },
-                                MetricScore {
-                                    id: "https://data.norge.no/vocabulary/dcatno-mqa#downloadUrlAvailability".to_string(),
-                                    score: 0,
-                                    is_scored: false,
-                                    max_score: 20,
-                                },
-                            ],
-                            score: 50,
-                            max_score: 70,
-                        },
-                        DimensionScore {
-                            id: "https://data.norge.no/vocabulary/dcatno-mqa#interoperability".to_string(),
-                            metrics: vec![
-                                MetricScore {
-                                    id: "https://data.norge.no/vocabulary/dcatno-mqa#formatAvailability".to_string(),
-                                    score: 0,
-                                    is_scored: true,
-                                    max_score: 20,
-                                },
-                            ],
-                            score: 0,
-                            max_score: 20,
-                        },
-                    ],
-                    score: 50,
-                    max_score: 90,
-                },
-                Score {
                     id: "https://distribution.b".to_string(),
                     dimensions: vec![
                         DimensionScore {
@@ -228,6 +189,45 @@ mod tests {
                         },
                     ],
                     score: 20,
+                    max_score: 90,
+                },
+                Score {
+                    id: "https://distribution.a".to_string(),
+                    dimensions: vec![
+                        DimensionScore {
+                            id: "https://data.norge.no/vocabulary/dcatno-mqa#accessibility".to_string(),
+                            metrics: vec![
+                                MetricScore {
+                                    id: "https://data.norge.no/vocabulary/dcatno-mqa#accessUrlStatusCode".to_string(),
+                                    score: 50,
+                                    is_scored: true,
+                                    max_score: 50,
+                                },
+                                MetricScore {
+                                    id: "https://data.norge.no/vocabulary/dcatno-mqa#downloadUrlAvailability".to_string(),
+                                    score: 0,
+                                    is_scored: false,
+                                    max_score: 20,
+                                },
+                            ],
+                            score: 50,
+                            max_score: 70,
+                        },
+                        DimensionScore {
+                            id: "https://data.norge.no/vocabulary/dcatno-mqa#interoperability".to_string(),
+                            metrics: vec![
+                                MetricScore {
+                                    id: "https://data.norge.no/vocabulary/dcatno-mqa#formatAvailability".to_string(),
+                                    score: 0,
+                                    is_scored: true,
+                                    max_score: 20,
+                                },
+                            ],
+                            score: 0,
+                            max_score: 20,
+                        },
+                    ],
+                    score: 50,
                     max_score: 90,
                 },
             ],

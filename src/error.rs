@@ -7,7 +7,9 @@ pub enum Error {
     #[error(transparent)]
     StorageError(#[from] oxigraph::store::StorageError),
     #[error(transparent)]
-    QueryError(#[from] oxigraph::sparql::QueryError),
+    VariableNameParseError(#[from] oxigraph::sparql::VariableNameParseError),
+    #[error(transparent)]
+    SparqlSyntaxError(#[from] oxigraph::sparql::SparqlSyntaxError),
     #[error(transparent)]
     IriParseError(#[from] oxigraph::model::IriParseError),
     #[error(transparent)]

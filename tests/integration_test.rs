@@ -15,12 +15,13 @@ use httptest::{
 };
 use kafka_utils::{consume_all_messages, process_single_message, TestProducer};
 use serde::{Deserialize, Serialize};
+use sophia_api::term::SimpleTerm;
+use sophia_api::source::TripleSource;
+use sophia_isomorphism::isomorphic_graphs;
+use sophia_turtle::parser::turtle::parse_str;
 use uuid::Uuid;
 
-use crate::utils::comparable_turtle_content;
-
 mod kafka_utils;
-mod utils;
 
 #[tokio::test]
 async fn test() {
@@ -96,10 +97,11 @@ impl Matcher<UpdateRequest> for UpdateRequest {
     fn matches(&mut self, update: &UpdateRequest, _ctx: &mut ExecutionContext) -> bool {
         println!("{}", update.turtle_assessment);
         println!("{}", serde_json::to_string(&update.scores).unwrap());
-        assert_eq!(
-            comparable_turtle_content(&update.turtle_assessment),
-            comparable_turtle_content(&self.turtle_assessment)
-        );
+
+        assert!(isomorphic_graphs(
+            &parse_str(&update.turtle_assessment).collect_triples::<Vec<[SimpleTerm; 3]>>().unwrap(),
+            &parse_str(&self.turtle_assessment).collect_triples::<Vec<[SimpleTerm; 3]>>().unwrap()
+        ).unwrap());
         assert_eq!(update.scores, self.scores);
         true
     }

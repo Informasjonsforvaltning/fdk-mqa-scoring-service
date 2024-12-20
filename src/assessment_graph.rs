@@ -2,20 +2,21 @@ use std::{collections::HashMap, io::Cursor};
 
 use chrono::{DateTime, NaiveDateTime, Utc};
 use oxigraph::{
-    io::GraphFormat,
+    io::{RdfFormat, RdfParser},
     model::{
         vocab::xsd, BlankNode, GraphNameRef, Literal, NamedNode, NamedNodeRef, NamedOrBlankNode,
         Quad, Term,
     },
     store::Store,
 };
-use sophia::{
-    graph::{inmem::LightGraph, Graph},
-    parser::turtle,
+use sophia_api::{
+    graph::Graph,
     serializer::{QuadSerializer, Stringifier},
-    triple::stream::TripleSource,
+    source::TripleSource,
 };
+use sophia_inmem::graph::LightGraph;
 use sophia_jsonld::JsonLdStringifier;
+use sophia_turtle::parser::turtle;
 
 use crate::{
     error::Error,
@@ -42,11 +43,11 @@ impl AssessmentGraph {
 
     /// Loads graph from string.
     pub fn load<G: ToString>(&self, graph: G) -> Result<(), Error> {
-        self.0.load_graph(
-            graph.to_string().as_ref(),
-            GraphFormat::Turtle,
-            GraphNameRef::DefaultGraph,
-            None,
+        self.0.load_from_reader(
+            RdfParser::from_format(RdfFormat::Turtle)
+                .without_named_graphs()
+                .with_default_graph(GraphNameRef::DefaultGraph),
+            graph.to_string().as_bytes().as_ref()
         )?;
         Ok(())
     }
@@ -404,7 +405,7 @@ impl AssessmentGraph {
     pub fn to_turtle(&self) -> Result<String, Error> {
         let mut buff = Cursor::new(Vec::new());
         self.0
-            .dump_graph(&mut buff, GraphFormat::Turtle, GraphNameRef::DefaultGraph)?;
+            .dump_graph_to_writer(GraphNameRef::DefaultGraph, RdfFormat::Turtle, &mut buff)?;
 
         String::from_utf8(buff.into_inner()).map_err(|e| e.to_string().into())
     }
@@ -457,12 +458,12 @@ mod tests {
             distributions,
             vec![
                 AssessmentNode {
-                    assessment: node("https://distribution.assessment.a"),
-                    resource: node("https://distribution.a"),
-                },
-                AssessmentNode {
                     assessment: node("https://distribution.assessment.b"),
                     resource: node("https://distribution.b"),
+                },
+                AssessmentNode {
+                    assessment: node("https://distribution.assessment.a"),
+                    resource: node("https://distribution.a"),
                 },
             ]
         );
