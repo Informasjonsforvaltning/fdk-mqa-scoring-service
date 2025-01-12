@@ -722,7 +722,7 @@ dependencies = [
  "sophia_isomorphism",
  "sophia_jsonld",
  "sophia_turtle",
- "thiserror 2.0.8",
+ "thiserror 2.0.11",
  "tokio",
  "tracing",
  "tracing-subscriber",
@@ -2003,7 +2003,7 @@ dependencies = [
  "sparesults",
  "spargebra",
  "sparopt",
- "thiserror 2.0.8",
+ "thiserror 1.0.69",
 ]
 
 [[package]]
@@ -2031,7 +2031,7 @@ dependencies = [
  "oxiri",
  "oxsdatatypes",
  "rand",
- "thiserror 2.0.8",
+ "thiserror 1.0.69",
 ]
 
 [[package]]
@@ -2043,7 +2043,7 @@ dependencies = [
  "oxrdf",
  "oxrdfxml",
  "oxttl",
- "thiserror 2.0.8",
+ "thiserror 1.0.69",
 ]
 
 [[package]]
@@ -2056,7 +2056,7 @@ dependencies = [
  "oxiri",
  "oxrdf",
  "quick-xml",
- "thiserror 2.0.8",
+ "thiserror 1.0.69",
 ]
 
 [[package]]
@@ -2076,7 +2076,7 @@ version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f3e0497e4fa5caa8e0d1cc750cb6546a98feb938f2d45db065aceb03210f741d"
 dependencies = [
- "thiserror 2.0.8",
+ "thiserror 1.0.69",
 ]
 
 [[package]]
@@ -2089,7 +2089,7 @@ dependencies = [
  "oxilangtag",
  "oxiri",
  "oxrdf",
- "thiserror 2.0.8",
+ "thiserror 1.0.69",
 ]
 
 [[package]]
@@ -2843,7 +2843,7 @@ dependencies = [
  "resiter",
  "serde",
  "sophia_iri",
- "thiserror 2.0.8",
+ "thiserror 2.0.11",
 ]
 
 [[package]]
@@ -2853,7 +2853,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ebacba4fa7baed53f89844a5c9e5962d6232a449d5b450b9de72bb67f0203332"
 dependencies = [
  "sophia_api",
- "thiserror 2.0.8",
+ "thiserror 2.0.11",
 ]
 
 [[package]]
@@ -2866,7 +2866,7 @@ dependencies = [
  "oxiri",
  "regex",
  "serde",
- "thiserror 2.0.8",
+ "thiserror 2.0.11",
 ]
 
 [[package]]
@@ -2894,7 +2894,7 @@ dependencies = [
  "sophia_api",
  "sophia_iri",
  "sophia_term",
- "thiserror 2.0.8",
+ "thiserror 2.0.11",
  "tokio",
 ]
 
@@ -2944,7 +2944,7 @@ dependencies = [
  "memchr",
  "oxrdf",
  "quick-xml",
- "thiserror 2.0.8",
+ "thiserror 1.0.69",
 ]
 
 [[package]]
@@ -2958,7 +2958,7 @@ dependencies = [
  "oxrdf",
  "peg",
  "rand",
- "thiserror 2.0.8",
+ "thiserror 1.0.69",
 ]
 
 [[package]]
@@ -3111,11 +3111,11 @@ dependencies = [
 
 [[package]]
 name = "thiserror"
-version = "2.0.8"
+version = "2.0.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "08f5383f3e0071702bf93ab5ee99b52d26936be9dedd9413067cbdcddcb6141a"
+checksum = "d452f284b73e6d76dd36758a0c8684b1d5be31f92b89d07fd5822175732206fc"
 dependencies = [
- "thiserror-impl 2.0.8",
+ "thiserror-impl 2.0.11",
 ]
 
 [[package]]
@@ -3131,9 +3131,9 @@ dependencies = [
 
 [[package]]
 name = "thiserror-impl"
-version = "2.0.8"
+version = "2.0.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f2f357fcec90b3caef6623a099691be676d033b40a058ac95d2a6ade6fa0c943"
+checksum = "26afc1baea8a989337eeb52b6e72a039780ce45c3edfcc9c5b9d112feeb173c2"
 dependencies = [
  "proc-macro2",
  "quote",
