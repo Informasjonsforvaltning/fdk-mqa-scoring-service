@@ -140,6 +140,10 @@ async fn receive_message(
         Ok(_) => {
             tracing::info!(elapsed_millis, attempts, "message handled successfully");
             PROCESSED_MESSAGES.with_label_values(&["success"]).inc();
+
+            if let Err(e) = consumer.store_offset_from_message(&message) {
+                tracing::warn!(error = e.to_string(), "failed to store offset");
+            };
         }
         Err(e) => {
             tracing::error!(
@@ -152,9 +156,7 @@ async fn receive_message(
         }
     };
     PROCESSING_TIME.observe(elapsed_millis as f64 / 1000.0);
-    if let Err(e) = consumer.store_offset_from_message(&message) {
-        tracing::warn!(error = e.to_string(), "failed to store offset");
-    };
+
 }
 
 pub async fn handle_message(
