@@ -4,6 +4,7 @@ use std::{
 };
 
 use apache_avro::schema::Name;
+use futures::future::ok;
 use lazy_static::lazy_static;
 use rdkafka::{
     consumer::{Consumer, StreamConsumer},
@@ -78,11 +79,12 @@ pub async fn run_async_processor(worker_id: usize, sr_settings: SrSettings) -> R
     let consumer: StreamConsumer = create_consumer()?;
     let mut decoder = AvroDecoder::new(sr_settings);
     let score_definitions = ScoreGraph::new()?.scores()?;
-    let assessment_graph = AssessmentGraph::new()?;
     let http_client = reqwest::Client::new();
 
     tracing::info!(worker_id, "listening for messages");
     loop {
+        let assessment_graph = AssessmentGraph::new()?;
+
         let message = consumer.recv().await?;
         let span = tracing::span!(
             Level::INFO,
@@ -156,7 +158,6 @@ async fn receive_message(
         }
     };
     PROCESSING_TIME.observe(elapsed_millis as f64 / 1000.0);
-
 }
 
 pub async fn handle_message(
@@ -223,7 +224,6 @@ async fn handle_mqa_event(
         MqaEventType::PropertiesChecked
         | MqaEventType::UrlsChecked
         | MqaEventType::DcatComplienceChecked => {
-            assessment_graph.clear()?;
             let fdk_id = Uuid::parse_str(event.fdk_id.as_str())
                 .map_err(|e| format!("unable to parse FDK ID: {e}"))?;
 
@@ -237,7 +237,6 @@ async fn handle_mqa_event(
                         event_timestamp = event.timestamp,
                         "overriding existing assessment"
                     );
-                    assessment_graph.clear()?;
                 } else if current_timestamp > event.timestamp {
                     tracing::debug!(
                         existing_timestamp = current_timestamp,
@@ -269,6 +268,7 @@ async fn handle_mqa_event(
             tracing::debug!("posting assessment to api");
             let turtle_assessment = assessment_graph.to_turtle()?;
             let jsonld_assessment = assessment_graph.turtle_to_jsonld(&turtle_assessment)?;
+
             post_scores(
                 &http_client,
                 &fdk_id,
