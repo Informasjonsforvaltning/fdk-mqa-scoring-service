@@ -230,26 +230,37 @@ async fn handle_mqa_event(
             if let Some(graph) = get_graph(&http_client, &fdk_id).await? {
                 assessment_graph.load(graph)?;
 
-                let current_timestamp = assessment_graph.get_modified_timestmap()?;
-                if current_timestamp < event.timestamp {
-                    tracing::debug!(
-                        existing_timestamp = current_timestamp,
-                        event_timestamp = event.timestamp,
-                        "overriding existing assessment"
-                    );
-                } else if current_timestamp > event.timestamp {
-                    tracing::debug!(
-                        existing_timestamp = current_timestamp,
-                        event_timestamp = event.timestamp,
-                        "skipping outdated assessment event"
-                    );
-                    return Ok(());
-                } else {
-                    tracing::debug!(
-                        existing_timestamp = current_timestamp,
-                        event_timestamp = event.timestamp,
-                        "merging with existing assessment"
-                    );
+                let current_timestamp = assessment_graph.get_modified_timestmap();
+                
+                match current_timestamp {
+                    Some(timestamp) => {
+                        if timestamp < event.timestamp {
+                            tracing::debug!(
+                                existing_timestamp = timestamp,
+                                event_timestamp = event.timestamp,
+                                "overriding existing assessment"
+                            );
+                        } else if timestamp > event.timestamp {
+                            tracing::debug!(
+                                existing_timestamp = timestamp,
+                                event_timestamp = event.timestamp,
+                                "skipping outdated assessment event"
+                            );
+                            return Ok(());
+                        } else {
+                            tracing::debug!(
+                                existing_timestamp = timestamp,
+                                event_timestamp = event.timestamp,
+                                "merging with existing assessment"
+                            );
+                        }
+                    }
+                    None => {
+                        tracing::debug!(
+                            fdk_id = %fdk_id,
+                            "no existing timestamp found, treating as new assessment"
+                        );
+                    }
                 }
             } else {
                 tracing::debug!("saving new assessment");

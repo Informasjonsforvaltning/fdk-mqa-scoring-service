@@ -173,8 +173,12 @@ impl AssessmentGraph {
     }
 
     /// Get modification timestamp.
-    pub fn get_modified_timestmap(&self) -> Result<i64, Error> {
-        let dataset_assessment = self.dataset()?.assessment;
+    pub fn get_modified_timestmap(&self) -> Option<i64> {
+        let dataset_assessment = match self.dataset() {
+            Ok(dataset) => dataset.assessment,
+            Err(_) => return None,
+        };
+        
         let term = match self
             .0
             .quads_for_pattern(
@@ -185,18 +189,18 @@ impl AssessmentGraph {
             )
             .next()
         {
-            Some(Ok(quad)) => Ok(Some(quad.object)),
-            Some(Err(e)) => Err(e),
-            None => Ok(None),
-        }?;
+            Some(Ok(quad)) => Some(quad.object),
+            Some(Err(_)) => return None,
+            None => return None,
+        };
 
         if let Some(Term::Literal(literal)) = term {
             let timestamp = DateTime::parse_from_str(literal.value(), "%Y-%m-%d %H:%M:%S%.f %z")
-                .map_err(|e| e.to_string())?
+                .ok()?
                 .timestamp_millis();
-            Ok(timestamp)
+            Some(timestamp)
         } else {
-            Err("measurement graph has no modified timestamp".into())
+            None
         }
     }
 
@@ -508,7 +512,7 @@ mod tests {
     #[test]
     fn modification_timestamp() {
         let graph = measurement_graph();
-        assert!(graph.get_modified_timestmap().is_err());
+        assert!(graph.get_modified_timestmap().is_none());
         graph.insert_modified_timestmap(1656316912123).unwrap();
         assert!(graph.to_turtle().unwrap().contains("<https://dataset.assessment.foo> <http://purl.org/dc/terms/modified> \"2022-06-27 08:01:52.123 +0000\"^^<http://www.w3.org/2001/XMLSchema#dateTime> ."));
         assert_eq!(graph.get_modified_timestmap().unwrap(), 1656316912123);
