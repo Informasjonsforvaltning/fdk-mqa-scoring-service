@@ -29,6 +29,8 @@ services:
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 100
+      KAFKA_OPENTELEMETRY_ENABLED: "false"
+      KAFKA_OPENTELEMETRY_METRICS_EXPORTERS: "none"
     volumes:
       - ./kafka:/kafka
     # Creates custom topics and starts kafka process (in parallel).
