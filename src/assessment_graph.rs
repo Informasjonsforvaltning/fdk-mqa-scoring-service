@@ -1,6 +1,6 @@
 use std::{collections::HashMap, io::Cursor};
 
-use chrono::{DateTime, NaiveDateTime, Utc};
+use chrono::{DateTime};
 use oxigraph::{
     io::{RdfFormat, RdfParser},
     model::{
@@ -152,15 +152,14 @@ impl AssessmentGraph {
 
     /// Inserts modification timestamp.
     pub fn insert_modified_timestmap(&self, timestamp: i64) -> Result<(), Error> {
-        let timestamp = DateTime::<Utc>::from_naive_utc_and_offset(
-            NaiveDateTime::from_timestamp_opt(
-                timestamp / 1000,
-                ((timestamp % 1000) * 1_000_000) as u32,
-            ).expect("Invalid modified timestamp"),
-            Utc,
-        )
-        .format("%Y-%m-%d %H:%M:%S%.f %z")
-        .to_string();
+        let datetime = DateTime::from_timestamp(
+            timestamp / 1000,
+            ((timestamp % 1000) * 1_000_000) as u32,
+        ).ok_or("Invalid modified timestamp")?;
+        
+        let timestamp = datetime
+            .format("%Y-%m-%d %H:%M:%S%.f %z")
+            .to_string();
 
         let dataset_assessment = self.dataset()?.assessment;
         self.0.insert(&Quad::new(

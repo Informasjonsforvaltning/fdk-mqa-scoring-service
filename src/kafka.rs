@@ -4,7 +4,6 @@ use std::{
 };
 
 use apache_avro::schema::Name;
-use futures::future::ok;
 use lazy_static::lazy_static;
 use rdkafka::{
     consumer::{Consumer, StreamConsumer},
