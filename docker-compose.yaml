@@ -31,6 +31,7 @@ services:
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 100
       KAFKA_OPENTELEMETRY_ENABLED: "false"
       KAFKA_OPENTELEMETRY_METRICS_EXPORTERS: "none"
+      KAFKA_PROCESS_ROLES: "broker"
     volumes:
       - ./kafka:/kafka
     # Creates custom topics and starts kafka process (in parallel).
