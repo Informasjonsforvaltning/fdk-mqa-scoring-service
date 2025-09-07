@@ -722,7 +722,7 @@ dependencies = [
  "sophia_isomorphism",
  "sophia_jsonld",
  "sophia_turtle",
- "thiserror 2.0.12",
+ "thiserror 2.0.16",
  "tokio",
  "tracing",
  "tracing-subscriber",
@@ -2007,7 +2007,7 @@ dependencies = [
  "sparesults",
  "spareval",
  "spargebra",
- "thiserror 2.0.12",
+ "thiserror 1.0.69",
 ]
 
 [[package]]
@@ -2035,7 +2035,7 @@ dependencies = [
  "oxiri",
  "oxsdatatypes",
  "rand",
- "thiserror 2.0.12",
+ "thiserror 1.0.69",
 ]
 
 [[package]]
@@ -2047,7 +2047,7 @@ dependencies = [
  "oxrdf",
  "oxrdfxml",
  "oxttl",
- "thiserror 2.0.12",
+ "thiserror 1.0.69",
 ]
 
 [[package]]
@@ -2060,7 +2060,7 @@ dependencies = [
  "oxiri",
  "oxrdf",
  "quick-xml",
- "thiserror 2.0.12",
+ "thiserror 1.0.69",
 ]
 
 [[package]]
@@ -2080,7 +2080,7 @@ version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "06fa874d87eae638daae9b4e3198864fe2cce68589f227c0b2cf5b62b1530516"
 dependencies = [
- "thiserror 2.0.12",
+ "thiserror 1.0.69",
 ]
 
 [[package]]
@@ -2093,7 +2093,7 @@ dependencies = [
  "oxilangtag",
  "oxiri",
  "oxrdf",
- "thiserror 2.0.12",
+ "thiserror 1.0.69",
 ]
 
 [[package]]
@@ -2841,7 +2841,7 @@ dependencies = [
  "resiter",
  "serde",
  "sophia_iri",
- "thiserror 2.0.12",
+ "thiserror 2.0.16",
 ]
 
 [[package]]
@@ -2851,7 +2851,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ebacba4fa7baed53f89844a5c9e5962d6232a449d5b450b9de72bb67f0203332"
 dependencies = [
  "sophia_api",
- "thiserror 2.0.12",
+ "thiserror 2.0.16",
 ]
 
 [[package]]
@@ -2864,7 +2864,7 @@ dependencies = [
  "oxiri",
  "regex",
  "serde",
- "thiserror 2.0.12",
+ "thiserror 2.0.16",
 ]
 
 [[package]]
@@ -2892,7 +2892,7 @@ dependencies = [
  "sophia_api",
  "sophia_iri",
  "sophia_term",
- "thiserror 2.0.12",
+ "thiserror 2.0.16",
  "tokio",
 ]
 
@@ -2942,7 +2942,7 @@ dependencies = [
  "memchr",
  "oxrdf",
  "quick-xml",
- "thiserror 2.0.12",
+ "thiserror 1.0.69",
 ]
 
 [[package]]
@@ -2965,7 +2965,7 @@ dependencies = [
  "sparesults",
  "spargebra",
  "sparopt",
- "thiserror 2.0.12",
+ "thiserror 1.0.69",
 ]
 
 [[package]]
@@ -2979,7 +2979,7 @@ dependencies = [
  "oxrdf",
  "peg",
  "rand",
- "thiserror 2.0.12",
+ "thiserror 1.0.69",
 ]
 
 [[package]]
@@ -3127,11 +3127,11 @@ dependencies = [
 
 [[package]]
 name = "thiserror"
-version = "2.0.12"
+version = "2.0.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "567b8a2dae586314f7be2a752ec7474332959c6460e02bde30d702a66d488708"
+checksum = "3467d614147380f2e4e374161426ff399c91084acd2363eaf549172b3d5e60c0"
 dependencies = [
- "thiserror-impl 2.0.12",
+ "thiserror-impl 2.0.16",
 ]
 
 [[package]]
@@ -3147,9 +3147,9 @@ dependencies = [
 
 [[package]]
 name = "thiserror-impl"
-version = "2.0.12"
+version = "2.0.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7f7cf42b4507d8ea322120659672cf1b9dbb93f8f2d4ecfd6e51350ff5b17a1d"
+checksum = "6c5e1be1c48b9172ee610da68fd9cd2770e7a4056cb3fc98710ee6906f0c7960"
 dependencies = [
  "proc-macro2",
  "quote",
