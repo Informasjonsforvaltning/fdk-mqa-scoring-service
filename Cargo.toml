@@ -4,29 +4,29 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-actix-web = "4.4.0"
-apache-avro = "0.17.0"
-chrono = "0.4.31"
-futures = "0.3.29"
-httptest = "0.16.1"
+actix-web = "4.11.0"
+apache-avro = "0.19.0"
+chrono = "0.4.42"
+futures = "0.3.31"
+httptest = "0.16.3"
 lazy_static = "1.5.0"
-oxigraph = "0.4.4"
+oxigraph = "0.4.11"
 prometheus = "0.13.4"
 rdkafka = "0.37.0"
-regex = "1.11.1"
-reqwest = { version = "0.12.9", features = ["json"] }
-schema_registry_converter = { version = "4.2.0", features = ["avro", "blocking"] }
-serde = "1.0.216"
-serde_json = "1.0.133"
+regex = "1.11.2"
+reqwest = { version = "0.12.23", features = ["json"] }
+schema_registry_converter = { version = "4.5.0", features = ["avro", "blocking"] }
+serde = "1.0.225"
+serde_json = "1.0.145"
 sophia_api = "0.9.0"
 sophia_inmem = "0.9.0"
 sophia_jsonld = "0.9.0"
 sophia_turtle = "0.9.0"
 thiserror = "2.0"
-tokio = { version = "1.42.0", features = ["full"] }
+tokio = { version = "1.47.1", features = ["full"] }
 tracing = "0.1.41"
-tracing-subscriber = { version = "0.3.19", features = ["json", "env-filter", "tracing-log"] }
-uuid = { version = "1.11.0", features = ["v4"] }
+tracing-subscriber = { version = "0.3.20", features = ["json", "env-filter", "tracing-log"] }
+uuid = { version = "1.18.1", features = ["v4"] }
 
 [dev-dependencies]
 sophia_isomorphism = "0.9.0"
