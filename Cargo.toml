@@ -12,7 +12,7 @@ httptest = "0.16.3"
 lazy_static = "1.5.0"
 oxigraph = "0.4.11"
 prometheus = "0.13.4"
-rdkafka = "0.37.0"
+rdkafka = "0.38.0"
 regex = "1.12.2"
 reqwest = { version = "0.12.24", features = ["json"] }
 schema_registry_converter = { version = "4.6.0", features = ["avro", "blocking"] }
