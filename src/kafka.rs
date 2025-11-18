@@ -1,5 +1,6 @@
 use std::{
     env,
+    sync::atomic::{AtomicBool, Ordering},
     time::{Duration, Instant},
 };
 
@@ -38,6 +39,7 @@ lazy_static! {
     pub static ref SCORING_API_URL: String =
         env::var("SCORING_API_URL").unwrap_or("http://localhost:8082".to_string());
     pub static ref SCORING_API_KEY: String = env::var("API_KEY").unwrap_or_default();
+    pub static ref KAFKA_READY: AtomicBool = AtomicBool::new(false);
 }
 
 pub fn create_sr_settings() -> Result<SrSettings, Error> {
@@ -72,10 +74,27 @@ pub fn create_consumer() -> Result<StreamConsumer, KafkaError> {
     Ok(consumer)
 }
 
+pub fn is_kafka_ready() -> bool {
+    KAFKA_READY.load(Ordering::Relaxed)
+}
+
 pub async fn run_async_processor(worker_id: usize, sr_settings: SrSettings) -> Result<(), Error> {
     tracing::info!(worker_id, "starting worker");
 
     let consumer: StreamConsumer = create_consumer()?;
+    
+    // Verify Kafka connection by fetching metadata
+    match consumer.fetch_metadata(None, Duration::from_secs(5)) {
+        Ok(_) => {
+            tracing::info!(worker_id, "kafka consumer connected successfully");
+            KAFKA_READY.store(true, Ordering::Relaxed);
+        }
+        Err(e) => {
+            tracing::warn!(worker_id, error = e.to_string(), "failed to fetch kafka metadata");
+            // Don't set ready if we can't connect
+        }
+    }
+    
     let mut decoder = AvroDecoder::new(sr_settings);
     let score_definitions = ScoreGraph::new()?.scores()?;
     let http_client = reqwest::Client::new();
