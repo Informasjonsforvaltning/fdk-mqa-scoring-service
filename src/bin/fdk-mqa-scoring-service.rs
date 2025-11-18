@@ -1,8 +1,8 @@
-use actix_web::{get, App, HttpServer, Responder};
+use actix_web::{get, App, HttpServer, Responder, HttpResponse};
 use fdk_mqa_scoring_service::{
     kafka::{
-        create_sr_settings, run_async_processor, BROKERS, INPUT_TOPIC, SCHEMA_REGISTRY,
-        SCORING_API_URL,
+        create_sr_settings, is_kafka_ready, run_async_processor, BROKERS, INPUT_TOPIC,
+        SCHEMA_REGISTRY, SCORING_API_URL,
     },
     metrics::{get_metrics, register_metrics},
 };
@@ -18,7 +18,11 @@ async fn ping() -> impl Responder {
 
 #[get("/ready")]
 async fn ready() -> impl Responder {
-    "ok"
+    if is_kafka_ready() {
+        HttpResponse::Ok().body("ok")
+    } else {
+        HttpResponse::ServiceUnavailable().body("kafka not ready")
+    }
 }
 
 #[get("/metrics")]

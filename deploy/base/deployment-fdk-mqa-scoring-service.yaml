@@ -56,11 +56,19 @@ spec:
             limits:
               memory: "1Gi"
           livenessProbe:
-            exec:
-              command:
-                - "true"
+            httpGet:
+              path: /ping
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
           readinessProbe:
-            exec:
-              command:
-                - "true"
+            httpGet:
+              path: /ready
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
       restartPolicy: Always
