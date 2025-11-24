@@ -66,7 +66,6 @@ pub fn create_consumer() -> Result<StreamConsumer, KafkaError> {
         .set("enable.auto.commit", "true")
         .set("enable.auto.offset.store", "false")
         .set("auto.offset.reset", "beginning")
-        .set("api.version.request", "false")
         .set("security.protocol", "plaintext")
         .set("max.partition.fetch.bytes", "2097152")
         .create()?;
