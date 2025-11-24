@@ -81,9 +81,12 @@ pub fn is_kafka_ready() -> bool {
 pub async fn run_async_processor(worker_id: usize, sr_settings: SrSettings) -> Result<(), Error> {
     tracing::info!(worker_id, "starting worker");
 
+    tracing::info!(worker_id, "creating kafka consumer");
     let consumer: StreamConsumer = create_consumer()?;
+    tracing::info!(worker_id, "kafka consumer created");
     
     // Verify Kafka connection by fetching metadata
+    tracing::info!(worker_id, "fetching kafka metadata");
     match consumer.fetch_metadata(None, Duration::from_secs(5)) {
         Ok(_) => {
             tracing::info!(worker_id, "kafka consumer connected successfully");
@@ -95,6 +98,7 @@ pub async fn run_async_processor(worker_id: usize, sr_settings: SrSettings) -> R
         }
     }
     
+    tracing::info!(worker_id, "initializing decoder and score definitions");
     let mut decoder = AvroDecoder::new(sr_settings);
     let score_definitions = ScoreGraph::new()?.scores()?;
     let http_client = reqwest::Client::new();
@@ -103,7 +107,9 @@ pub async fn run_async_processor(worker_id: usize, sr_settings: SrSettings) -> R
     loop {
         let assessment_graph = AssessmentGraph::new()?;
 
+        tracing::debug!(worker_id, "waiting for message");
         let message = consumer.recv().await?;
+        tracing::debug!(worker_id, "message received");
         let span = tracing::span!(
             Level::INFO,
             "message",
