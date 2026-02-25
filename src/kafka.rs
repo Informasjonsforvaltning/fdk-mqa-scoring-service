@@ -349,17 +349,25 @@ async fn post_scores(
         .send()
         .await?;
 
-    if response.status() == StatusCode::ACCEPTED {
-        Ok(())
-    } else {
-        if response.status() == StatusCode::PAYLOAD_TOO_LARGE {
-            tracing::warn!(payload = format!("{:?}", update), "payload too large");
+    match response.status() {
+        StatusCode::ACCEPTED => Ok(()),
+        StatusCode::CONFLICT => {
+            tracing::warn!(
+                fdk_id = %fdk_id,
+                "scoring api returned conflict: duplicate dataset_uri (same URI, different id); acking message"
+            );
+            Ok(())
         }
-        Err(format!(
-            "Invalid response from scoring api: {} - {}",
-            response.status(),
-            response.text().await?
-        )
-        .into())
+        _ => {
+            if response.status() == StatusCode::PAYLOAD_TOO_LARGE {
+                tracing::warn!(payload = format!("{:?}", update), "payload too large");
+            }
+            Err(format!(
+                "Invalid response from scoring api: {} - {}",
+                response.status(),
+                response.text().await?
+            )
+            .into())
+        }
     }
 }
