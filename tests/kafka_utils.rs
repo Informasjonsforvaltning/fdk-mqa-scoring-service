@@ -37,7 +37,7 @@ pub async fn consume_all_messages(consumer: &StreamConsumer) -> Result<(), Kafka
 pub async fn consume_single_message(
     consumer: &StreamConsumer,
     timeout_duration: Duration,
-) -> Result<Option<BorrowedMessage>, KafkaError> {
+) -> Result<Option<BorrowedMessage<'_>>, KafkaError> {
     match tokio::time::timeout(timeout_duration, consumer.recv()).await {
         Ok(result) => {
             let message = result?;

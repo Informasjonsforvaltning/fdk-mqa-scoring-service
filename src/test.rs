@@ -1,5 +1,6 @@
 use oxigraph::model::NamedNode;
 
+#[allow(dead_code)] // used by integration tests in tests/
 pub const MEASUREMENT_GRAPH: &str = r#"
     <https://dataset.assessment.foo> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://data.norge.no/vocabulary/dcatno-mqa#DatasetAssessment> .
     <https://dataset.assessment.foo> <https://data.norge.no/vocabulary/dcatno-mqa#assessmentOf> <https://dataset.foo> .
@@ -27,6 +28,7 @@ pub const MEASUREMENT_GRAPH: &str = r#"
     _:d <http://www.w3.org/ns/dqv#isMeasurementOf> <https://data.norge.no/vocabulary/dcatno-mqa#formatAvailability> .
     "#;
 
+#[allow(dead_code)] // used by integration tests in tests/
 pub const METRIC_GRAPH: &str = r#"
     @prefix dcatno-mqa: <https://data.norge.no/vocabulary/dcatno-mqa#> .
     @prefix dqv:        <http://www.w3.org/ns/dqv#> .
@@ -45,6 +47,7 @@ pub const METRIC_GRAPH: &str = r#"
         dqv:inDimension         dcatno-mqa:interoperability .
     "#;
 
+#[allow(dead_code)] // used by integration tests in tests/
 pub const SCORE_GRAPH: &str = r#"
     @prefix dcatno-mqa: <https://data.norge.no/vocabulary/dcatno-mqa#> .
     @prefix xsd:        <http://www.w3.org/2001/XMLSchema#> .
@@ -56,10 +59,12 @@ pub const SCORE_GRAPH: &str = r#"
         dcatno-mqa:trueScore            "20"^^xsd:integer .
     "#;
 
+#[allow(dead_code)] // used by integration tests in tests/
 pub fn node(name: &str) -> NamedNode {
     NamedNode::new_unchecked(name)
 }
 
+#[allow(dead_code)] // used by integration tests in tests/
 pub fn mqa_node(name: &str) -> NamedNode {
     NamedNode::new_unchecked("https://data.norge.no/vocabulary/dcatno-mqa#".to_string() + name)
 }
