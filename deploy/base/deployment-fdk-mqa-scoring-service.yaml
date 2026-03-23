@@ -51,10 +51,10 @@ spec:
               value: http://fdk-mqa-scoring-api:8082
           resources:
             requests:
-              memory: "1Gi"
-              cpu: "100m"
+              memory: "2Gi"
+              cpu: "300m"
             limits:
-              memory: "1Gi"
+              memory: "2Gi"
           livenessProbe:
             httpGet:
               path: /ping
