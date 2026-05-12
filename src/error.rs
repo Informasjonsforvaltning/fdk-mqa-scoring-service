@@ -13,7 +13,7 @@ pub enum Error {
     #[error(transparent)]
     IriParseError(#[from] oxigraph::model::IriParseError),
     #[error(transparent)]
-    EvaluationError(#[from] oxigraph::sparql::EvaluationError),
+    EvaluationError(#[from] oxigraph::sparql::QueryEvaluationError),
     #[error(transparent)]
     SerializerError(#[from] oxigraph::store::SerializerError),
     #[error(transparent)]

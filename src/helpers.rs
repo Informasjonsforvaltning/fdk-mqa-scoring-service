@@ -2,18 +2,17 @@ use std::fs;
 
 use oxigraph::{
     io::{RdfFormat, RdfParser},
-    model::{GraphNameRef, NamedNode, Quad, Subject, Term},
-    sparql::{QueryResults, QuerySolution},
+    model::{GraphNameRef, NamedNode, NamedOrBlankNode, Quad, Term},
+    sparql::{QueryResults, QuerySolution, SparqlEvaluator},
     store::{StorageError, Store},
 };
 use crate::error::Error;
 
 // Executes SPARQL SELECT query on store.
 pub fn execute_query(store: &Store, q: &str) -> Result<Vec<QuerySolution>, Error> {
-    match store.query(q) {
-        Ok(QueryResults::Solutions(solutions)) => Ok(solutions.collect::<Result<_, _>>()?),
-        Ok(_) => Err("unable to execute query, not a SELECT query".into()),
-        Err(e) => Err(e.into()),
+    match SparqlEvaluator::new().parse_query(q)?.on_store(store).execute()? {
+        QueryResults::Solutions(solutions) => Ok(solutions.collect::<Result<_, _>>()?),
+        _ => Err("unable to execute query, not a SELECT query".into()),
     }
 }
 
@@ -42,7 +41,7 @@ pub fn parse_graphs<G: ToString>(graphs: Vec<G>) -> Result<Store, Error> {
 // Attemts to extract quad subject as named node.
 pub fn named_quad_subject(result: Result<Quad, StorageError>) -> Result<NamedNode, Error> {
     match result?.subject {
-        Subject::NamedNode(node) => Ok(node),
+        NamedOrBlankNode::NamedNode(node) => Ok(node),
         _ => Err("unable to get named quad subject".into()),
     }
 }
