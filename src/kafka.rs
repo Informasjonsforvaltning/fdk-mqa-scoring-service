@@ -98,11 +98,10 @@ pub async fn run_async_processor(worker_id: usize, sr_settings: SrSettings) -> R
     let mut decoder = AvroDecoder::new(sr_settings);
     let score_definitions = ScoreGraph::new()?.scores()?;
     let http_client = reqwest::Client::new();
+    let assessment_graph = AssessmentGraph::new()?;
 
     tracing::info!(worker_id, "listening for messages");
     loop {
-        let assessment_graph = AssessmentGraph::new()?;
-
         let message = consumer.recv().await?;
         let span = tracing::span!(
             Level::INFO,
@@ -140,6 +139,12 @@ async fn receive_message(
 
     for _ in 0..5 {
         attempts += 1;
+
+        // Reset state before every attempt.
+        if let Err(e) = assessment_graph.clear() {
+            tracing::warn!(error = e.to_string(), "failed to clear assessment graph before attempt");
+        }
+
         result = handle_message(
             decoder,
             score_definitions,
@@ -246,7 +251,7 @@ async fn handle_mqa_event(
                 .map_err(|e| format!("unable to parse FDK ID: {e}"))?;
 
             if let Some(graph) = get_graph(&http_client, &fdk_id).await? {
-                assessment_graph.load(graph)?;
+                assessment_graph.load(&graph)?;
 
                 let current_timestamp = assessment_graph.get_modified_timestmap();
                 
@@ -284,7 +289,7 @@ async fn handle_mqa_event(
                 tracing::debug!("saving new assessment");
             }
 
-            assessment_graph.load(event.graph)?;
+            assessment_graph.load(&event.graph)?;
             assessment_graph.insert_modified_timestmap(event.timestamp)?;
 
             let (dataset_score, distribution_scores) =
@@ -296,7 +301,7 @@ async fn handle_mqa_event(
 
             tracing::debug!("posting assessment to api");
             let turtle_assessment = assessment_graph.to_turtle()?;
-            let jsonld_assessment = assessment_graph.turtle_to_jsonld(&turtle_assessment)?;
+            let jsonld_assessment = assessment_graph.to_jsonld()?;
 
             post_scores(
                 &http_client,
@@ -360,7 +365,12 @@ async fn post_scores(
         }
         _ => {
             if response.status() == StatusCode::PAYLOAD_TOO_LARGE {
-                tracing::warn!(payload = format!("{:?}", update), "payload too large");
+                tracing::warn!(
+                    fdk_id = %fdk_id,
+                    turtle_bytes = update.turtle_assessment.len(),
+                    jsonld_bytes = update.jsonld_assessment.len(),
+                    "payload too large"
+                );
             }
             Err(format!(
                 "Invalid response from scoring api: {} - {}",

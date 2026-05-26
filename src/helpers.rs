@@ -25,14 +25,14 @@ pub fn load_files(fnames: Vec<&str>) -> Result<Vec<String>, Error> {
 }
 
 // Parses list of turtle graph strings into a single store.
-pub fn parse_graphs<G: ToString>(graphs: Vec<G>) -> Result<Store, Error> {
+pub fn parse_graphs<G: AsRef<[u8]>>(graphs: Vec<G>) -> Result<Store, Error> {
     let store = oxigraph::store::Store::new()?;
     for graph in graphs {
         store.load_from_reader(
             RdfParser::from_format(RdfFormat::Turtle)
                 .without_named_graphs()
                 .with_default_graph(GraphNameRef::DefaultGraph),
-            graph.to_string().as_bytes().as_ref()
+            graph.as_ref(),
         )?;
     }
     Ok(store)
