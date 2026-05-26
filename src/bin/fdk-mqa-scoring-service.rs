@@ -10,6 +10,11 @@ use futures::{
     stream::{FuturesUnordered, StreamExt},
     FutureExt,
 };
+use mimalloc::MiMalloc;
+
+// Replace the system allocator with mimalloc.
+#[global_allocator]
+static GLOBAL: MiMalloc = MiMalloc;
 
 #[get("/ping")]
 async fn ping() -> impl Responder {

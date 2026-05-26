@@ -1,22 +1,14 @@
-use std::{collections::HashMap, io::Cursor};
+use std::collections::HashMap;
 
 use chrono::{DateTime};
 use oxigraph::{
-    io::{RdfFormat, RdfParser},
+    io::{JsonLdProfileSet, RdfFormat, RdfParser},
     model::{
         vocab::xsd, BlankNode, GraphNameRef, Literal, NamedNode, NamedNodeRef, NamedOrBlankNode,
         Quad, Term,
     },
     store::Store,
 };
-use sophia_api::{
-    graph::Graph,
-    serializer::{QuadSerializer, Stringifier},
-    source::TripleSource,
-};
-use sophia_inmem::graph::LightGraph;
-use sophia_jsonld::JsonLdStringifier;
-use sophia_turtle::parser::turtle;
 
 use crate::{
     error::Error,
@@ -41,13 +33,15 @@ impl AssessmentGraph {
         Ok(Self(store))
     }
 
-    /// Loads graph from string.
-    pub fn load<G: ToString>(&self, graph: G) -> Result<(), Error> {
+    /// Loads graph from a Turtle string.
+    ///
+    /// Takes `&str` so callers can pass borrowed data directly.
+    pub fn load(&self, graph: &str) -> Result<(), Error> {
         self.0.load_from_reader(
             RdfParser::from_format(RdfFormat::Turtle)
                 .without_named_graphs()
                 .with_default_graph(GraphNameRef::DefaultGraph),
-            graph.to_string().as_bytes().as_ref()
+            graph.as_bytes(),
         )?;
         Ok(())
     }
@@ -404,28 +398,26 @@ impl AssessmentGraph {
         Ok(())
     }
 
-    /// Dump graph to string.
+    /// Dump graph to a Turtle string.
     pub fn to_turtle(&self) -> Result<String, Error> {
-        let mut buff = Cursor::new(Vec::new());
-        self.0
-            .dump_graph_to_writer(GraphNameRef::DefaultGraph, RdfFormat::Turtle, &mut buff)?;
-
-        String::from_utf8(buff.into_inner()).map_err(|e| e.to_string().into())
+        let buff = self.0.dump_graph_to_writer(
+            GraphNameRef::DefaultGraph,
+            RdfFormat::Turtle,
+            Vec::new(),
+        )?;
+        String::from_utf8(buff).map_err(|e| e.to_string().into())
     }
 
-    /// Dump graph to json.
-    pub fn turtle_to_jsonld(&self, turtle: &str) -> Result<String, Error> {
-        let graph: LightGraph = turtle::parse_str(turtle)
-            .collect_triples()
-            .map_err(|e| Error::String(e.to_string()))?;
-
-        let mut serializer = JsonLdStringifier::new_stringifier();
-        serializer
-            .serialize_dataset(&graph.as_dataset())
-            .map_err(|e| Error::String(e.to_string()))?;
-
-        String::from_utf8(serializer.as_utf8().iter().map(|b| b.clone()).collect())
-            .map_err(|e| e.to_string().into())
+    /// Dump graph to a JSON-LD string.
+    pub fn to_jsonld(&self) -> Result<String, Error> {
+        let buff = self.0.dump_graph_to_writer(
+            GraphNameRef::DefaultGraph,
+            RdfFormat::JsonLd {
+                profile: JsonLdProfileSet::empty(),
+            },
+            Vec::new(),
+        )?;
+        String::from_utf8(buff).map_err(|e| e.to_string().into())
     }
 }
 
