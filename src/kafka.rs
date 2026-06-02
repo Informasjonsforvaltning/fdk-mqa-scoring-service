@@ -69,6 +69,8 @@ pub fn create_consumer() -> Result<StreamConsumer, KafkaError> {
         .set("api.version.request", "false")
         .set("security.protocol", "plaintext")
         .set("max.partition.fetch.bytes", "2097152")
+        .set("queued.max.messages.kbytes", "32768")
+        .set("queued.min.messages", "500")
         .create()?;
     consumer.subscribe(&[&INPUT_TOPIC])?;
     Ok(consumer)
@@ -98,8 +100,6 @@ pub async fn run_async_processor(worker_id: usize, sr_settings: SrSettings) -> R
     let mut decoder = AvroDecoder::new(sr_settings);
     let score_definitions = ScoreGraph::new()?.scores()?;
     let http_client = reqwest::Client::new();
-    let assessment_graph = AssessmentGraph::new()?;
-
     tracing::info!(worker_id, "listening for messages");
     loop {
         let message = consumer.recv().await?;
@@ -116,7 +116,6 @@ pub async fn run_async_processor(worker_id: usize, sr_settings: SrSettings) -> R
             &consumer,
             &mut decoder,
             &score_definitions,
-            &assessment_graph,
             &http_client,
             &message,
         )
@@ -129,7 +128,6 @@ async fn receive_message(
     consumer: &StreamConsumer,
     decoder: &mut AvroDecoder<'_>,
     score_definitions: &ScoreDefinitions,
-    assessment_graph: &AssessmentGraph,
     http_client: &reqwest::Client,
     message: &BorrowedMessage<'_>,
 ) {
@@ -140,15 +138,18 @@ async fn receive_message(
     for _ in 0..5 {
         attempts += 1;
 
-        // Reset state before every attempt.
-        if let Err(e) = assessment_graph.clear() {
-            tracing::warn!(error = e.to_string(), "failed to clear assessment graph before attempt");
-        }
+        let assessment_graph = match AssessmentGraph::new() {
+            Ok(graph) => graph,
+            Err(e) => {
+                result = Err(e);
+                break;
+            }
+        };
 
         result = handle_message(
             decoder,
             score_definitions,
-            assessment_graph,
+            &assessment_graph,
             http_client,
             message,
         )
