@@ -22,7 +22,7 @@ pub enum MqaEventType {
     #[serde(rename = "URLS_CHECKED")]
     UrlsChecked,
     #[serde(rename = "DCAT_COMPLIANCE_CHECKED")]
-    DcatComplienceChecked,
+    DcatComplianceChecked,
     #[serde(other)]
     Unknown,
 }

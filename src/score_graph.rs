@@ -1,9 +1,8 @@
-use oxigraph::model::{vocab::rdf, NamedNode, NamedNodeRef, Term};
+use oxigraph::model::{vocab::rdf, NamedNode, NamedNodeRef};
 
 use crate::{
     error::Error,
-    helpers::execute_query,
-    helpers::{named_quad_subject, parse_graphs},
+    helpers::{execute_query, literal_binding, named_binding, named_quad_subject, parse_graphs},
     measurement_value::MeasurementValue,
     vocab::{dcat_mqa, dqv},
 };
@@ -98,19 +97,14 @@ impl ScoreGraph {
         execute_query(&self.0, &q)?
             .into_iter()
             .map(|qs| {
-                let name = match qs.get("metric") {
-                    Some(Term::NamedNode(node)) => Ok(node.clone()),
-                    _ => Err("unable to read metric from score graph"),
-                }?;
-                let score = match qs.get("score") {
-                    Some(Term::Literal(literal)) => literal.value().parse::<u64>().map_err(|_| {
-                        format!(
-                            "unable to parse metric score from score graph: '{}'",
-                            literal.value()
-                        )
-                    }),
-                    _ => Err("unable to read metric score from score graph".into()),
-                }?;
+                let name = named_binding(&qs, "metric")?;
+                let literal = literal_binding(&qs, "score")?;
+                let score = literal.value().parse::<u64>().map_err(|_| {
+                    format!(
+                        "unable to parse metric score from score graph: '{}'",
+                        literal.value()
+                    )
+                })?;
                 Ok(ScoreMetric { id: name, score })
             })
             .collect()

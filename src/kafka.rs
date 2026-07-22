@@ -132,19 +132,33 @@ async fn receive_message(
     message: &BorrowedMessage<'_>,
 ) {
     let start_time = Instant::now();
+
+    let assessment_graph = match AssessmentGraph::new() {
+        Ok(graph) => graph,
+        Err(e) => {
+            let elapsed_millis = start_time.elapsed().as_millis();
+            tracing::error!(
+                elapsed_millis,
+                attempts = 0,
+                error = e.to_string(),
+                "failed while handling message"
+            );
+            PROCESSED_MESSAGES.with_label_values(&["error"]).inc();
+            PROCESSING_TIME.observe(elapsed_millis as f64 / 1000.0);
+            return;
+        }
+    };
+
     let mut attempts = 0;
-    let mut result: Result<(), Error> = Err("handle_message not attempted".into());
+    let mut result = Ok(());
 
-    for _ in 0..5 {
-        attempts += 1;
-
-        let assessment_graph = match AssessmentGraph::new() {
-            Ok(graph) => graph,
-            Err(e) => {
-                result = Err(e);
-                break;
-            }
-        };
+    for attempt in 1..=5 {
+        attempts = attempt;
+        // Clear between retries so a partial failure does not pollute the next attempt.
+        if let Err(e) = assessment_graph.clear() {
+            result = Err(e);
+            break;
+        }
 
         result = handle_message(
             decoder,
@@ -155,15 +169,17 @@ async fn receive_message(
         )
         .await;
 
-        if let Ok(_) = result {
+        if result.is_ok() {
             break;
         }
-        tokio::time::sleep(Duration::from_millis(3000)).await;
+        if attempt < 5 {
+            tokio::time::sleep(Duration::from_millis(3000)).await;
+        }
     }
     let elapsed_millis = start_time.elapsed().as_millis();
 
     match result {
-        Ok(_) => {
+        Ok(()) => {
             tracing::info!(elapsed_millis, attempts, "message handled successfully");
             PROCESSED_MESSAGES.with_label_values(&["success"]).inc();
 
@@ -202,8 +218,7 @@ pub async fn handle_message(
 
             handle_mqa_event(score_definitions, assessment_graph, http_client, event)
                 .instrument(span)
-                .await
-                .map_err(|e| e.to_string())?;
+                .await?;
         }
         InputEvent::Unknown { namespace, name } => {
             tracing::warn!(namespace, name, "skipping unknown event");
@@ -259,13 +274,13 @@ async fn handle_mqa_event(
     match event.event_type {
         MqaEventType::PropertiesChecked
         | MqaEventType::UrlsChecked
-        | MqaEventType::DcatComplienceChecked => {
+        | MqaEventType::DcatComplianceChecked => {
             let fdk_id = Uuid::parse_str(event.fdk_id.as_str())
                 .map_err(|e| format!("unable to parse FDK ID: {e}"))?;
 
             if let Some(graph) = get_graph(&http_client, &fdk_id).await? {
                 assessment_graph.load(&graph)?;
-                if is_outdated(assessment_graph.get_modified_timestmap(), event.timestamp) {
+                if is_outdated(assessment_graph.get_modified_timestamp(), event.timestamp) {
                     return Ok(());
                 }
             } else {
@@ -273,7 +288,7 @@ async fn handle_mqa_event(
             }
 
             assessment_graph.load(&event.graph)?;
-            assessment_graph.insert_modified_timestmap(event.timestamp)?;
+            assessment_graph.insert_modified_timestamp(event.timestamp)?;
 
             let (dataset_score, distribution_scores) =
                 calculate_score(&assessment_graph, &score_definitions)?;

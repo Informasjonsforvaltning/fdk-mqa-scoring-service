@@ -2,7 +2,7 @@ use std::fs;
 
 use oxigraph::{
     io::{RdfFormat, RdfParser},
-    model::{GraphNameRef, NamedNode, NamedOrBlankNode, Quad, Term},
+    model::{GraphNameRef, Literal, NamedNode, NamedOrBlankNode, Quad, Term},
     sparql::{QueryResults, QuerySolution, SparqlEvaluator},
     store::{StorageError, Store},
 };
@@ -13,6 +13,35 @@ pub fn execute_query(store: &Store, q: &str) -> Result<Vec<QuerySolution>, Error
     match SparqlEvaluator::new().parse_query(q)?.on_store(store).execute()? {
         QueryResults::Solutions(solutions) => Ok(solutions.collect::<Result<_, _>>()?),
         _ => Err("unable to execute query, not a SELECT query".into()),
+    }
+}
+
+/// Extracts a named-node binding from a SPARQL solution.
+pub fn named_binding(qs: &QuerySolution, name: &str) -> Result<NamedNode, Error> {
+    match qs.get(name) {
+        Some(Term::NamedNode(node)) => Ok(node.clone()),
+        _ => Err(format!("unable to get named binding '{name}'").into()),
+    }
+}
+
+/// Extracts a literal binding from a SPARQL solution.
+pub fn literal_binding(qs: &QuerySolution, name: &str) -> Result<Literal, Error> {
+    match qs.get(name) {
+        Some(Term::Literal(literal)) => Ok(literal.clone()),
+        _ => Err(format!("unable to get literal binding '{name}'").into()),
+    }
+}
+
+/// Extracts a named- or blank-node binding from a SPARQL solution.
+pub fn named_or_blank_binding(qs: &QuerySolution, name: &str) -> Result<NamedOrBlankNode, Error> {
+    match qs.get(name) {
+        Some(Term::NamedNode(node)) => Ok(NamedOrBlankNode::NamedNode(node.clone())),
+        Some(Term::BlankNode(node)) => Ok(NamedOrBlankNode::BlankNode(node.clone())),
+        Some(term) => Err(format!(
+            "unable to get named or blank binding '{name}', found: '{term}'"
+        )
+        .into()),
+        None => Err(format!("unable to get named or blank binding '{name}'").into()),
     }
 }
 

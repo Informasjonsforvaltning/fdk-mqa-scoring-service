@@ -12,7 +12,10 @@ use oxigraph::{
 
 use crate::{
     error::Error,
-    helpers::{execute_query, named_quad_object, named_quad_subject},
+    helpers::{
+        execute_query, literal_binding, named_binding, named_or_blank_binding, named_quad_object,
+        named_quad_subject,
+    },
     measurement_value::MeasurementValue,
     score::{DimensionScore, MetricScore, Score},
     vocab::{dcat_mqa, dcat_terms, dqv, rdf_syntax},
@@ -58,7 +61,8 @@ impl AssessmentGraph {
             )
             .map(named_quad_subject)
             .next()
-            .unwrap_or(Err("assessment graph has no dataset assessments".into()))?;
+            .transpose()?
+            .ok_or("assessment graph has no dataset assessments")?;
         let resource = self.assessment_resource(assessment.as_ref())?;
         Ok(AssessmentNode {
             assessment,
@@ -76,11 +80,14 @@ impl AssessmentGraph {
             )
             .map(named_quad_object)
             .next()
-            .unwrap_or(Err(format!(
-                "assessment graph has no resource that '{}' is assessment of",
-                assessment
-            )
-            .into()))
+            .transpose()?
+            .ok_or_else(|| {
+                format!(
+                    "assessment graph has no resource that '{}' is assessment of",
+                    assessment
+                )
+                .into()
+            })
     }
 
     /// Retrieves all named distribution assessment nodes.
@@ -127,25 +134,16 @@ impl AssessmentGraph {
         execute_query(&self.0, &query)?
             .into_iter()
             .map(|qs| {
-                let node = match qs.get("node") {
-                    Some(Term::NamedNode(node)) => Ok(node.clone()),
-                    _ => Err("unable to get quality measurement node"),
-                }?;
-                let metric = match qs.get("metric") {
-                    Some(Term::NamedNode(node)) => Ok(node.clone()),
-                    _ => Err("unable to get quality measurement metric"),
-                }?;
-                let value = match qs.get("value") {
-                    Some(Term::Literal(value)) => MeasurementValue::try_from(value.clone()),
-                    _ => Err("unable to get quality measurement value".into()),
-                }?;
+                let node = named_binding(&qs, "node")?;
+                let metric = named_binding(&qs, "metric")?;
+                let value = MeasurementValue::try_from(literal_binding(&qs, "value")?)?;
                 Ok(((node, metric), value))
             })
             .collect()
     }
 
     /// Inserts modification timestamp.
-    pub fn insert_modified_timestmap(&self, timestamp: i64) -> Result<(), Error> {
+    pub fn insert_modified_timestamp(&self, timestamp: i64) -> Result<(), Error> {
         let datetime = DateTime::from_timestamp(
             timestamp / 1000,
             ((timestamp % 1000) * 1_000_000) as u32,
@@ -166,7 +164,7 @@ impl AssessmentGraph {
     }
 
     /// Get modification timestamp.
-    pub fn get_modified_timestmap(&self) -> Option<i64> {
+    pub fn get_modified_timestamp(&self) -> Option<i64> {
         let dataset_assessment = match self.dataset() {
             Ok(dataset) => dataset.assessment,
             Err(_) => return None,
@@ -337,21 +335,9 @@ impl AssessmentGraph {
             dcat_mqa::CONTAINS_QUALITY_MEASUREMENT,
             dqv::IS_MEASUREMENT_OF,
         );
-        let result = execute_query(&self.0, &q)?.into_iter().next();
-        match result {
-            Some(qs) => match qs.values().first() {
-                Some(Some(Term::NamedNode(node))) => {
-                    Ok(Some(NamedOrBlankNode::NamedNode(node.clone())))
-                }
-                Some(Some(Term::BlankNode(node))) => {
-                    Ok(Some(NamedOrBlankNode::BlankNode(node.clone())))
-                }
-                Some(Some(term)) => {
-                    Err(format!("unable to get measurement, found: '{}'", term).into())
-                }
-                _ => Err("unable to get measurement".into()),
-            },
-            _ => Ok(None),
+        match execute_query(&self.0, &q)?.into_iter().next() {
+            Some(qs) => Ok(Some(named_or_blank_binding(&qs, "measurement")?)),
+            None => Ok(None),
         }
     }
 
@@ -503,9 +489,9 @@ mod tests {
     #[test]
     fn modification_timestamp() {
         let graph = measurement_graph();
-        assert!(graph.get_modified_timestmap().is_none());
-        graph.insert_modified_timestmap(1656316912123).unwrap();
+        assert!(graph.get_modified_timestamp().is_none());
+        graph.insert_modified_timestamp(1656316912123).unwrap();
         assert!(graph.to_turtle().unwrap().contains("<https://dataset.assessment.foo> <http://purl.org/dc/terms/modified> \"2022-06-27 08:01:52.123 +0000\"^^<http://www.w3.org/2001/XMLSchema#dateTime> ."));
-        assert_eq!(graph.get_modified_timestmap().unwrap(), 1656316912123);
+        assert_eq!(graph.get_modified_timestamp().unwrap(), 1656316912123);
     }
 }
