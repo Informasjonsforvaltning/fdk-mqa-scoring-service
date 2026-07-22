@@ -238,6 +238,18 @@ async fn decode_message(
     }
 }
 
+/// Returns true when a stored assessment is newer than the incoming event.
+fn is_outdated(existing_timestamp: Option<i64>, event_timestamp: i64) -> bool {
+    let comparison = existing_timestamp.map(|ts| ts.cmp(&event_timestamp));
+    tracing::debug!(
+        existing_timestamp,
+        event_timestamp,
+        ?comparison,
+        "assessment timestamp comparison"
+    );
+    matches!(comparison, Some(std::cmp::Ordering::Greater))
+}
+
 async fn handle_mqa_event(
     score_definitions: &ScoreDefinitions,
     assessment_graph: &AssessmentGraph,
@@ -253,38 +265,8 @@ async fn handle_mqa_event(
 
             if let Some(graph) = get_graph(&http_client, &fdk_id).await? {
                 assessment_graph.load(&graph)?;
-
-                let current_timestamp = assessment_graph.get_modified_timestmap();
-                
-                match current_timestamp {
-                    Some(timestamp) => {
-                        if timestamp < event.timestamp {
-                            tracing::debug!(
-                                existing_timestamp = timestamp,
-                                event_timestamp = event.timestamp,
-                                "overriding existing assessment"
-                            );
-                        } else if timestamp > event.timestamp {
-                            tracing::debug!(
-                                existing_timestamp = timestamp,
-                                event_timestamp = event.timestamp,
-                                "skipping outdated assessment event"
-                            );
-                            return Ok(());
-                        } else {
-                            tracing::debug!(
-                                existing_timestamp = timestamp,
-                                event_timestamp = event.timestamp,
-                                "merging with existing assessment"
-                            );
-                        }
-                    }
-                    None => {
-                        tracing::debug!(
-                            fdk_id = %fdk_id,
-                            "no existing timestamp found, treating as new assessment"
-                        );
-                    }
+                if is_outdated(assessment_graph.get_modified_timestmap(), event.timestamp) {
+                    return Ok(());
                 }
             } else {
                 tracing::debug!("saving new assessment");
@@ -380,5 +362,18 @@ async fn post_scores(
             )
             .into())
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn skips_only_when_existing_is_newer() {
+        assert!(!is_outdated(None, 100));
+        assert!(!is_outdated(Some(50), 100));
+        assert!(!is_outdated(Some(100), 100));
+        assert!(is_outdated(Some(150), 100));
     }
 }
