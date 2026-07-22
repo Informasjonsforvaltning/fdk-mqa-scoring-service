@@ -1,57 +1,58 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{score, score_graph::ScoreDefinitions};
+use crate::{score::Score, score_graph::ScoreDefinitions};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct UpdateRequest {
     pub turtle_assessment: String,
     pub jsonld_assessment: String,
-    pub scores: Scores,
+    pub scores: ApiScores,
+}
+
+/// Score payload sent to the scoring API (includes max scores and is_scored flags).
+#[derive(Debug, PartialEq, Serialize, Deserialize)]
+pub struct ApiScores {
+    dataset: ApiScore,
+    distributions: Vec<ApiScore>,
 }
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
-pub struct Scores {
-    dataset: Score,
-    distributions: Vec<Score>,
-}
-
-#[derive(Debug, PartialEq, Serialize, Deserialize)]
-pub struct Score {
+pub struct ApiScore {
     id: String,
-    dimensions: Vec<DimensionScore>,
+    dimensions: Vec<ApiDimensionScore>,
     score: u64,
     max_score: u64,
 }
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
-pub struct DimensionScore {
+pub struct ApiDimensionScore {
     id: String,
-    metrics: Vec<MetricScore>,
+    metrics: Vec<ApiMetricScore>,
     score: u64,
     max_score: u64,
 }
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
-pub struct MetricScore {
+pub struct ApiMetricScore {
     id: String,
     score: u64,
     is_scored: bool,
     max_score: u64,
 }
 
-fn convert_score(score_definitions: &ScoreDefinitions, score: &score::Score) -> Score {
+fn convert_score(score_definitions: &ScoreDefinitions, score: &Score) -> ApiScore {
     let dimensions = score_definitions
         .dimensions
         .iter()
         .zip(score.dimensions.iter())
-        .map(|(score_dimension, dimension_score)| DimensionScore {
+        .map(|(score_dimension, dimension_score)| ApiDimensionScore {
             // .to_string() without .as_str() returns name wrapped in < >
             id: dimension_score.id.as_str().to_string(),
             metrics: score_dimension
                 .metrics
                 .iter()
                 .zip(dimension_score.metrics.iter())
-                .map(|(score_metric, metric_score)| MetricScore {
+                .map(|(score_metric, metric_score)| ApiMetricScore {
                     // .to_string() without .as_str() returns name wrapped in < >
                     id: metric_score.id.as_str().to_string(),
                     score: metric_score.score.unwrap_or_default(),
@@ -64,7 +65,7 @@ fn convert_score(score_definitions: &ScoreDefinitions, score: &score::Score) -> 
         })
         .collect();
 
-    Score {
+    ApiScore {
         id: score.resource.as_str().to_string(),
         dimensions,
         score: score.score,
@@ -74,13 +75,13 @@ fn convert_score(score_definitions: &ScoreDefinitions, score: &score::Score) -> 
 
 pub fn convert_scores(
     score_definitions: &ScoreDefinitions,
-    dataset_score: &score::Score,
-    distribution_scores: &Vec<score::Score>,
-) -> Scores {
-    Scores {
+    dataset_score: &Score,
+    distribution_scores: &[Score],
+) -> ApiScores {
+    ApiScores {
         dataset: convert_score(score_definitions, dataset_score),
         distributions: distribution_scores
-            .into_iter()
+            .iter()
             .map(|score| convert_score(score_definitions, score))
             .collect(),
     }
@@ -111,20 +112,20 @@ mod tests {
 
         let scores = convert_scores(&score_definitions, &dataset_score, &distribution_scores);
 
-        assert_eq!(scores, Scores {
-            dataset: Score {
+        assert_eq!(scores, ApiScores {
+            dataset: ApiScore {
                 id: "https://dataset.foo".to_string(),
                 dimensions: vec![
-                    DimensionScore {
+                    ApiDimensionScore {
                         id: "https://data.norge.no/vocabulary/dcatno-mqa#accessibility".to_string(),
                         metrics: vec![
-                            MetricScore {
+                            ApiMetricScore {
                                 id: "https://data.norge.no/vocabulary/dcatno-mqa#accessUrlStatusCode".to_string(),
                                 score: 50,
                                 is_scored: true,
                                 max_score: 50,
                             },
-                            MetricScore {
+                            ApiMetricScore {
                                 id: "https://data.norge.no/vocabulary/dcatno-mqa#downloadUrlAvailability".to_string(),
                                 score: 20,
                                 is_scored: true,
@@ -134,10 +135,10 @@ mod tests {
                         score: 70,
                         max_score: 70,
                     },
-                    DimensionScore {
+                    ApiDimensionScore {
                         id: "https://data.norge.no/vocabulary/dcatno-mqa#interoperability".to_string(),
                         metrics: vec![
-                            MetricScore {
+                            ApiMetricScore {
                                 id: "https://data.norge.no/vocabulary/dcatno-mqa#formatAvailability".to_string(),
                                 score: 0,
                                 is_scored: true,
@@ -152,19 +153,19 @@ mod tests {
                 max_score: 90,
             },
             distributions: vec![
-                Score {
+                ApiScore {
                     id: "https://distribution.b".to_string(),
                     dimensions: vec![
-                        DimensionScore {
+                        ApiDimensionScore {
                             id: "https://data.norge.no/vocabulary/dcatno-mqa#accessibility".to_string(),
                             metrics: vec![
-                                MetricScore {
+                                ApiMetricScore {
                                     id: "https://data.norge.no/vocabulary/dcatno-mqa#accessUrlStatusCode".to_string(),
                                     score: 0,
                                     is_scored: false,
                                     max_score: 50,
                                 },
-                                MetricScore {
+                                ApiMetricScore {
                                     id: "https://data.norge.no/vocabulary/dcatno-mqa#downloadUrlAvailability".to_string(),
                                     score: 0,
                                     is_scored: false,
@@ -174,10 +175,10 @@ mod tests {
                             score: 0,
                             max_score: 70,
                         },
-                        DimensionScore {
+                        ApiDimensionScore {
                             id: "https://data.norge.no/vocabulary/dcatno-mqa#interoperability".to_string(),
                             metrics: vec![
-                                MetricScore {
+                                ApiMetricScore {
                                     id: "https://data.norge.no/vocabulary/dcatno-mqa#formatAvailability".to_string(),
                                     score: 20,
                                     is_scored: true,
@@ -191,19 +192,19 @@ mod tests {
                     score: 20,
                     max_score: 90,
                 },
-                Score {
+                ApiScore {
                     id: "https://distribution.a".to_string(),
                     dimensions: vec![
-                        DimensionScore {
+                        ApiDimensionScore {
                             id: "https://data.norge.no/vocabulary/dcatno-mqa#accessibility".to_string(),
                             metrics: vec![
-                                MetricScore {
+                                ApiMetricScore {
                                     id: "https://data.norge.no/vocabulary/dcatno-mqa#accessUrlStatusCode".to_string(),
                                     score: 50,
                                     is_scored: true,
                                     max_score: 50,
                                 },
-                                MetricScore {
+                                ApiMetricScore {
                                     id: "https://data.norge.no/vocabulary/dcatno-mqa#downloadUrlAvailability".to_string(),
                                     score: 0,
                                     is_scored: false,
@@ -213,10 +214,10 @@ mod tests {
                             score: 50,
                             max_score: 70,
                         },
-                        DimensionScore {
+                        ApiDimensionScore {
                             id: "https://data.norge.no/vocabulary/dcatno-mqa#interoperability".to_string(),
                             metrics: vec![
-                                MetricScore {
+                                ApiMetricScore {
                                     id: "https://data.norge.no/vocabulary/dcatno-mqa#formatAvailability".to_string(),
                                     score: 0,
                                     is_scored: true,

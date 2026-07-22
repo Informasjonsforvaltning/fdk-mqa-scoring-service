@@ -4,7 +4,7 @@ use std::{
 };
 
 use fdk_mqa_scoring_service::{
-    json_conversion::Scores,
+    json_conversion::ApiScores,
     kafka::{create_consumer, INPUT_TOPIC},
     schemas::{MqaEvent, MqaEventType},
 };
@@ -90,7 +90,7 @@ async fn test() {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct UpdateRequest {
     pub turtle_assessment: String,
-    pub scores: Scores,
+    pub scores: ApiScores,
 }
 
 impl Matcher<UpdateRequest> for UpdateRequest {
