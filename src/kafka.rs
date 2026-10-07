@@ -299,7 +299,6 @@ async fn handle_mqa_event(
 
             tracing::debug!("posting assessment to api");
             let turtle_assessment = assessment_graph.to_turtle()?;
-            let jsonld_assessment = assessment_graph.to_jsonld()?;
 
             post_scores(
                 &http_client,
@@ -307,7 +306,6 @@ async fn handle_mqa_event(
                 UpdateRequest {
                     scores,
                     turtle_assessment,
-                    jsonld_assessment,
                 },
             )
             .await
@@ -366,7 +364,6 @@ async fn post_scores(
                 tracing::warn!(
                     fdk_id = %fdk_id,
                     turtle_bytes = update.turtle_assessment.len(),
-                    jsonld_bytes = update.jsonld_assessment.len(),
                     "payload too large"
                 );
             }

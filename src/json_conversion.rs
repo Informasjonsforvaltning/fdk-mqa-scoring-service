@@ -5,7 +5,6 @@ use crate::{score::Score, score_graph::ScoreDefinitions};
 #[derive(Debug, Serialize, Deserialize)]
 pub struct UpdateRequest {
     pub turtle_assessment: String,
-    pub jsonld_assessment: String,
     pub scores: ApiScores,
 }
 
