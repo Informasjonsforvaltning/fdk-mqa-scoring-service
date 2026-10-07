@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use chrono::{DateTime};
 use oxigraph::{
-    io::{JsonLdProfileSet, RdfFormat, RdfParser},
+    io::{RdfFormat, RdfParser},
     model::{
         vocab::xsd, BlankNode, GraphNameRef, Literal, NamedNode, NamedNodeRef, NamedOrBlankNode,
         Quad, Term,
@@ -389,18 +389,6 @@ impl AssessmentGraph {
         let buff = self.0.dump_graph_to_writer(
             GraphNameRef::DefaultGraph,
             RdfFormat::Turtle,
-            Vec::new(),
-        )?;
-        String::from_utf8(buff).map_err(|e| e.to_string().into())
-    }
-
-    /// Dump graph to a JSON-LD string.
-    pub fn to_jsonld(&self) -> Result<String, Error> {
-        let buff = self.0.dump_graph_to_writer(
-            GraphNameRef::DefaultGraph,
-            RdfFormat::JsonLd {
-                profile: JsonLdProfileSet::empty(),
-            },
             Vec::new(),
         )?;
         String::from_utf8(buff).map_err(|e| e.to_string().into())
