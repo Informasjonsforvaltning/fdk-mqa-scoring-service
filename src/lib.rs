@@ -3,6 +3,7 @@ pub mod error;
 pub mod helpers;
 pub mod json_conversion;
 pub mod kafka;
+pub mod kafka_context;
 mod measurement_value;
 pub mod metrics;
 pub mod schemas;
