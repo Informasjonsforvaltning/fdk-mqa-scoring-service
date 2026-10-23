@@ -3,11 +3,12 @@ use std::time::Duration;
 use fdk_mqa_scoring_service::{
     assessment_graph::AssessmentGraph,
     error::Error,
+    kafka::KafkaConsumer,
     kafka::{handle_message, BROKERS},
     score_graph::ScoreGraph,
 };
 use rdkafka::{
-    consumer::{CommitMode, Consumer, StreamConsumer},
+    consumer::{CommitMode, Consumer, ConsumerContext, StreamConsumer},
     error::KafkaError,
     message::BorrowedMessage,
     producer::{FutureProducer, FutureRecord},
@@ -23,7 +24,9 @@ use schema_registry_converter::{
 use serde::Serialize;
 
 /// Consumes all messages and drops their content.
-pub async fn consume_all_messages(consumer: &StreamConsumer) -> Result<(), KafkaError> {
+pub async fn consume_all_messages<C: ConsumerContext + 'static>(
+    consumer: &StreamConsumer<C>,
+) -> Result<(), KafkaError> {
     loop {
         // Loop untill no nessage can be received within timeout.
         let timeout_duration = Duration::from_millis(500);
@@ -34,8 +37,8 @@ pub async fn consume_all_messages(consumer: &StreamConsumer) -> Result<(), Kafka
 }
 
 /// Consumes and returns a single message, if received within the timeout period.
-pub async fn consume_single_message(
-    consumer: &StreamConsumer,
+pub async fn consume_single_message<C: ConsumerContext + 'static>(
+    consumer: &StreamConsumer<C>,
     timeout_duration: Duration,
 ) -> Result<Option<BorrowedMessage<'_>>, KafkaError> {
     match tokio::time::timeout(timeout_duration, consumer.recv()).await {
@@ -50,7 +53,7 @@ pub async fn consume_single_message(
     }
 }
 
-pub async fn process_single_message(consumer: StreamConsumer) -> Result<(), Error> {
+pub async fn process_single_message(consumer: KafkaConsumer) -> Result<(), Error> {
     let mut decoder = AvroDecoder::new(sr_settings());
     let score_definitions = ScoreGraph::new()?.scores()?;
     let assessment_graph = AssessmentGraph::new()?;
