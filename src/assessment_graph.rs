@@ -1,11 +1,11 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use chrono::{DateTime};
 use oxigraph::{
     io::{RdfFormat, RdfParser},
     model::{
         vocab::xsd, BlankNode, GraphNameRef, Literal, NamedNode, NamedNodeRef, NamedOrBlankNode,
-        Quad, Term,
+        NamedOrBlankNodeRef, Quad, Term,
     },
     store::Store,
 };
@@ -18,6 +18,7 @@ use crate::{
     },
     measurement_value::MeasurementValue,
     score::{DimensionScore, MetricScore, Score},
+    score_graph::ScoreDefinitions,
     vocab::{dcat_mqa, dcat_terms, dqv, rdf_syntax},
 };
 
@@ -154,6 +155,18 @@ impl AssessmentGraph {
             .to_string();
 
         let dataset_assessment = self.dataset()?.assessment;
+        let existing = self
+            .0
+            .quads_for_pattern(
+                Some(dataset_assessment.as_ref().into()),
+                Some(dcat_terms::MODIFIED),
+                None,
+                Some(GraphNameRef::DefaultGraph),
+            )
+            .collect::<Result<Vec<Quad>, _>>()?;
+        for quad in existing {
+            self.0.remove(&quad)?;
+        }
         self.0.insert(&Quad::new(
             dataset_assessment.as_ref(),
             dcat_terms::MODIFIED,
@@ -163,36 +176,113 @@ impl AssessmentGraph {
         Ok(())
     }
 
-    /// Get modification timestamp.
+    /// Get modification timestamp, newest value if several exist.
     pub fn get_modified_timestamp(&self) -> Option<i64> {
-        let dataset_assessment = match self.dataset() {
-            Ok(dataset) => dataset.assessment,
-            Err(_) => return None,
-        };
-        
-        let term = match self
-            .0
+        let dataset_assessment = self.dataset().ok()?.assessment;
+        self.0
             .quads_for_pattern(
                 Some(dataset_assessment.as_ref().into()),
                 Some(dcat_terms::MODIFIED),
                 None,
                 None,
             )
-            .next()
-        {
-            Some(Ok(quad)) => Some(quad.object),
-            Some(Err(_)) => return None,
-            None => return None,
-        };
+            .filter_map(|quad| match quad.ok()?.object {
+                Term::Literal(literal) => {
+                    DateTime::parse_from_str(literal.value(), "%Y-%m-%d %H:%M:%S%.f %z")
+                        .ok()
+                        .map(|dt| dt.timestamp_millis())
+                }
+                _ => None,
+            })
+            .max()
+    }
 
-        if let Some(Term::Literal(literal)) = term {
-            let timestamp = DateTime::parse_from_str(literal.value(), "%Y-%m-%d %H:%M:%S%.f %z")
-                .ok()?
-                .timestamp_millis();
-            Some(timestamp)
-        } else {
-            None
+    /// Merges an assessor event graph into the assessment.
+    pub fn merge_event(&self, graph: &str) -> Result<(), Error> {
+        let event = AssessmentGraph::new()?;
+        event.load(graph)?;
+
+        let metrics = event
+            .0
+            .quads_for_pattern(None, Some(dqv::IS_MEASUREMENT_OF), None, None)
+            .map(named_quad_object)
+            .collect::<Result<HashSet<NamedNode>, Error>>()?;
+        for metric in &metrics {
+            self.remove_measurements_of(metric.as_ref())?;
         }
+
+        self.load(graph)
+    }
+
+    /// Removes all score measurements and metric scores.
+    pub fn remove_scores(&self, score_definitions: &ScoreDefinitions) -> Result<(), Error> {
+        self.remove_measurements_of(dcat_mqa::SCORING)?;
+        for dimension in &score_definitions.dimensions {
+            let metric = NamedNode::new(format!("{}Scoring", dimension.id.as_str()))?;
+            self.remove_measurements_of(metric.as_ref())?;
+        }
+
+        let scores = self
+            .0
+            .quads_for_pattern(None, Some(dcat_mqa::SCORE), None, None)
+            .collect::<Result<Vec<Quad>, _>>()?;
+        for quad in scores {
+            self.0.remove(&quad)?;
+        }
+
+        /// Drop empty measurements.
+        let empty = self
+            .0
+            .quads_for_pattern(
+                None,
+                Some(rdf_syntax::TYPE),
+                Some(dqv::QUALITY_MEASUREMENT_CLASS.into()),
+                None,
+            )
+            .map(|quad| quad.map(|q| q.subject))
+            .collect::<Result<Vec<NamedOrBlankNode>, _>>()?
+            .into_iter()
+            .filter(|m| {
+                self.0
+                    .quads_for_pattern(Some(m.as_ref()), Some(dqv::VALUE), None, None)
+                    .next()
+                    .is_none()
+            })
+            .collect::<Vec<_>>();
+        for measurement in empty {
+            self.remove_measurement(measurement.as_ref())?;
+        }
+        Ok(())
+    }
+
+    /// Removes every measurement of the given metric.
+    fn remove_measurements_of(&self, metric: NamedNodeRef) -> Result<(), Error> {
+        let measurements = self
+            .0
+            .quads_for_pattern(None, Some(dqv::IS_MEASUREMENT_OF), Some(metric.into()), None)
+            .map(|quad| quad.map(|q| q.subject))
+            .collect::<Result<Vec<NamedOrBlankNode>, _>>()?;
+        for measurement in measurements {
+            self.remove_measurement(measurement.as_ref())?;
+        }
+        Ok(())
+    }
+
+    /// Removes a measurement node and every triple referencing it.
+    fn remove_measurement(&self, measurement: NamedOrBlankNodeRef) -> Result<(), Error> {
+        let mut quads = self
+            .0
+            .quads_for_pattern(Some(measurement), None, None, None)
+            .collect::<Result<Vec<Quad>, _>>()?;
+        quads.extend(
+            self.0
+                .quads_for_pattern(None, None, Some(measurement.into()), None)
+                .collect::<Result<Vec<Quad>, _>>()?,
+        );
+        for quad in quads {
+            self.0.remove(&quad)?;
+        }
+        Ok(())
     }
 
     /// Inserts score into measurement graph.
@@ -481,5 +571,102 @@ mod tests {
         graph.insert_modified_timestamp(1656316912123).unwrap();
         assert!(graph.to_turtle().unwrap().contains("<https://dataset.assessment.foo> <http://purl.org/dc/terms/modified> \"2022-06-27 08:01:52.123 +0000\"^^<http://www.w3.org/2001/XMLSchema#dateTime> ."));
         assert_eq!(graph.get_modified_timestamp().unwrap(), 1656316912123);
+    }
+
+    fn score_definitions() -> ScoreDefinitions {
+        use crate::{
+            helpers::parse_graphs,
+            score_graph::ScoreGraph,
+            test::{METRIC_GRAPH, SCORE_GRAPH},
+        };
+        ScoreGraph(parse_graphs(vec![METRIC_GRAPH, SCORE_GRAPH]).unwrap())
+            .scores()
+            .unwrap()
+    }
+
+    /// Mirrors `handle_mqa_event` for an event in the same run as the stored assessment.
+    fn run_pipeline(stored: Option<&str>, event: &str, timestamp: i64) -> String {
+        let definitions = score_definitions();
+        let graph = AssessmentGraph::new().unwrap();
+        if let Some(stored) = stored {
+            graph.load(stored).unwrap();
+        }
+        graph.merge_event(event).unwrap();
+        graph.remove_scores(&definitions).unwrap();
+        graph.insert_modified_timestamp(timestamp).unwrap();
+        let (dataset_score, distribution_scores) =
+            crate::score::calculate_score(&graph, &definitions).unwrap();
+        graph.insert_scores(&vec![dataset_score]).unwrap();
+        graph.insert_scores(&distribution_scores).unwrap();
+        graph.to_turtle().unwrap()
+    }
+
+    fn triple_count(turtle: &str) -> usize {
+        let graph = AssessmentGraph::new().unwrap();
+        graph.load(turtle).unwrap();
+        graph.0.len().unwrap()
+    }
+
+    fn count(turtle: &str, predicate: NamedNodeRef) -> usize {
+        let graph = AssessmentGraph::new().unwrap();
+        graph.load(turtle).unwrap();
+        graph
+            .0
+            .quads_for_pattern(None, Some(predicate), None, None)
+            .count()
+    }
+
+    #[test]
+    fn repeated_events_do_not_grow_graph() {
+        let first = run_pipeline(None, MEASUREMENT_GRAPH, 1656316912123);
+        let mut stored = first.clone();
+        for i in 1..=5 {
+            stored = run_pipeline(Some(&stored), MEASUREMENT_GRAPH, 1656316912123 + i);
+        }
+        assert_eq!(triple_count(&stored), triple_count(&first));
+        assert_eq!(count(&stored, dcat_terms::MODIFIED), 1);
+
+        let graph = AssessmentGraph::new().unwrap();
+        graph.load(&stored).unwrap();
+        assert_eq!(graph.get_modified_timestamp(), Some(1656316912128));
+    }
+
+    #[test]
+    fn event_replaces_values_of_its_metrics_only() {
+        let stored = run_pipeline(None, MEASUREMENT_GRAPH, 1656316912123);
+        // New URL check: access URL now fails. Other metrics must be kept.
+        let event = r#"
+            <https://dataset.assessment.foo> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://data.norge.no/vocabulary/dcatno-mqa#DatasetAssessment> .
+            <https://dataset.assessment.foo> <https://data.norge.no/vocabulary/dcatno-mqa#assessmentOf> <https://dataset.foo> .
+            <https://distribution.assessment.a> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://data.norge.no/vocabulary/dcatno-mqa#DistributionAssessment> .
+            <https://distribution.assessment.a> <https://data.norge.no/vocabulary/dcatno-mqa#assessmentOf> <https://distribution.a> .
+            <https://distribution.assessment.a> <https://data.norge.no/vocabulary/dcatno-mqa#containsQualityMeasurement> _:x .
+            _:x <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/ns/dqv#QualityMeasurement> .
+            _:x <http://www.w3.org/ns/dqv#isMeasurementOf> <https://data.norge.no/vocabulary/dcatno-mqa#accessUrlStatusCode> .
+            _:x <http://www.w3.org/ns/dqv#value> "404"^^<http://www.w3.org/2001/XMLSchema#integer> .
+        "#;
+        let updated = run_pipeline(Some(&stored), event, 1656316912124);
+        // Re-running the same event must not change the size.
+        let rerun = run_pipeline(Some(&updated), event, 1656316912125);
+        assert_eq!(triple_count(&rerun), triple_count(&updated));
+        assert!(triple_count(&updated) <= triple_count(&stored));
+
+        let graph = AssessmentGraph::new().unwrap();
+        graph.load(&updated).unwrap();
+        let measurements = graph.quality_measurements().unwrap();
+        assert_eq!(
+            measurements.get(&(
+                node("https://distribution.assessment.a"),
+                mqa_node("accessUrlStatusCode")
+            )),
+            Some(&MeasurementValue::Int(404))
+        );
+        assert_eq!(
+            measurements.get(&(
+                node("https://distribution.assessment.b"),
+                mqa_node("formatAvailability")
+            )),
+            Some(&MeasurementValue::Bool(true))
+        );
     }
 }

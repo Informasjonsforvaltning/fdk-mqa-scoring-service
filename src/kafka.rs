@@ -290,8 +290,20 @@ async fn decode_message(
     }
 }
 
-/// Returns true when a stored assessment is newer than the incoming event.
-fn is_outdated(existing_timestamp: Option<i64>, event_timestamp: i64) -> bool {
+/// The timestamp identifies the run an event belongs to,
+/// it is equal to the harvest timestamp from the initiating event
+/// and copied to each subsequent `MqaEvent`.
+#[derive(Debug, PartialEq)]
+enum Run {
+    /// The event belongs to an older run than the stored assessment: skip it.
+    Outdated,
+    /// Another assessor's result for the run already stored: merge it.
+    Current,
+    /// First event of a newer run: start over.
+    New,
+}
+
+fn classify_run(existing_timestamp: Option<i64>, event_timestamp: i64) -> Run {
     let comparison = existing_timestamp.map(|ts| ts.cmp(&event_timestamp));
     tracing::debug!(
         existing_timestamp,
@@ -299,7 +311,11 @@ fn is_outdated(existing_timestamp: Option<i64>, event_timestamp: i64) -> bool {
         ?comparison,
         "assessment timestamp comparison"
     );
-    matches!(comparison, Some(std::cmp::Ordering::Greater))
+    match comparison {
+        Some(std::cmp::Ordering::Greater) => Run::Outdated,
+        Some(std::cmp::Ordering::Equal) => Run::Current,
+        Some(std::cmp::Ordering::Less) | None => Run::New,
+    }
 }
 
 async fn handle_mqa_event(
@@ -317,14 +333,22 @@ async fn handle_mqa_event(
 
             if let Some(graph) = get_graph(&http_client, &fdk_id).await? {
                 assessment_graph.load(&graph)?;
-                if is_outdated(assessment_graph.get_modified_timestamp(), event.timestamp) {
-                    return Ok(());
+                match classify_run(assessment_graph.get_modified_timestamp(), event.timestamp) {
+                    Run::Outdated => return Ok(()),
+                    Run::Current => {}
+                    Run::New => {
+                        // A new assessment run replaces everything from earlier runs.
+                        tracing::debug!("new assessment run, discarding stored assessment");
+                        assessment_graph.clear()?;
+                    }
                 }
             } else {
                 tracing::debug!("saving new assessment");
             }
 
-            assessment_graph.load(&event.graph)?;
+            // Replace the metrics this event covers, scores are recalculated below.
+            assessment_graph.merge_event(&event.graph)?;
+            assessment_graph.remove_scores(score_definitions)?;
             assessment_graph.insert_modified_timestamp(event.timestamp)?;
 
             let (dataset_score, distribution_scores) =
@@ -738,10 +762,10 @@ mod tests {
     use super::*;
 
     #[test]
-    fn skips_only_when_existing_is_newer() {
-        assert!(!is_outdated(None, 100));
-        assert!(!is_outdated(Some(50), 100));
-        assert!(!is_outdated(Some(100), 100));
-        assert!(is_outdated(Some(150), 100));
+    fn classifies_run_by_timestamp() {
+        assert_eq!(classify_run(None, 100), Run::New);
+        assert_eq!(classify_run(Some(50), 100), Run::New);
+        assert_eq!(classify_run(Some(100), 100), Run::Current);
+        assert_eq!(classify_run(Some(150), 100), Run::Outdated);
     }
 }
